@@ -1,0 +1,2054 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Serif+TC:wght@400;700&display=swap" rel="stylesheet">
+<title>Revit MCP開發二例</title>
+<style>
+    /* CSS 變數由 JS 動態注入 */
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    html, body {
+        font-family: var(--font);
+        background: var(--bg);
+        color: var(--text-primary);
+        overflow: hidden;
+        height: 100vh;
+        width: 100vw;
+    }
+
+    /* === 投影片容器 === */
+    .deck {
+        height: 100vh;
+        width: 100vw;
+        position: relative;
+    }
+
+    .slide {
+        position: absolute;
+        top: 0; left: 0;
+        width: 100vw;
+        height: 100vh;
+        padding: 5vh 6vw;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        overflow: hidden;
+        opacity: 0;
+        pointer-events: none;
+        transition: opacity 0.4s ease;
+    }
+    .slide.active {
+        opacity: 1;
+        pointer-events: auto;
+    }
+
+    /* === 標題 === */
+    .slide-title {
+        font-size: clamp(2.2rem, 4.4vw, 3.8rem);
+        font-weight: 700;
+        margin-bottom: 2rem;
+        line-height: 1.2;
+        position: relative;
+        padding-bottom: 0.8rem;
+        color: var(--accent);
+    }
+    .slide-title::after {
+        content: '';
+        position: absolute;
+        bottom: 0; left: 0;
+        width: 3rem;
+        height: 4px;
+        background: var(--accent);
+        border-radius: 2px;
+    }
+
+    /* === 卡片 === */
+    .card {
+        background: var(--bg-card);
+        border: 1px solid var(--border);
+        border-radius: 16px;
+        padding: 2rem 2.5rem;
+        box-shadow: 0 4px 20px var(--shadow);
+        transition: background 0.2s;
+    }
+    .card:hover {
+        background: var(--bg-card-hover);
+    }
+
+    /* === 條列 === */
+    .bullet-list {
+        list-style: none;
+        padding: 0;
+    }
+    .bullet-list > li {
+        font-size: clamp(1.4rem, 2.6vw, 2.22rem);
+        line-height: 1.5;
+        color: var(--text-secondary);
+        padding: 0.8rem 0;
+        padding-left: 1.8rem;
+        position: relative;
+    }
+    .bullet-list > li::before {
+        content: '';
+        position: absolute;
+        left: 0;
+        top: 1.1rem;
+        width: 0.6rem;
+        height: 3px;
+        background: var(--accent);
+        border-radius: 2px;
+    }
+    .bullet-list > li > ul {
+        list-style: none;
+        padding-left: 1rem;
+        margin-top: 0.3rem;
+    }
+    .bullet-list > li > ul > li {
+        font-size: 0.88em;
+        color: var(--muted);
+        padding: 0.2rem 0;
+    }
+    .bullet-list > li > ul > li::before {
+        content: '–';
+        margin-right: 0.5rem;
+        color: var(--accent);
+    }
+
+    .body-text {
+        font-size: clamp(1.3rem, 2.5vw, 2rem);
+        line-height: 1.6;
+        margin-bottom: 1rem;
+        color: var(--text-secondary);
+    }
+
+    /* === 圖文分割 === */
+    .split-layout {
+        display: grid;
+        grid-template-columns: 1fr 1.3fr;
+        gap: 2rem;
+        flex: 1;
+        min-height: 0;
+        align-items: start;
+    }
+    .split-text {
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+    }
+    .split-image {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        min-height: 0;
+    }
+
+    /* === 圖表容器 === */
+    .diagram-container {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex: 1;
+        min-height: 0;
+        padding: 1rem 0;
+    }
+    .diagram-container svg {
+        filter: drop-shadow(0 2px 8px var(--shadow));
+    }
+
+    /* === 佔位符圖片 === */
+    .placeholder-img {
+        background: var(--bg-card);
+        border: 2px dashed var(--border);
+        border-radius: 16px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        padding: 3rem;
+        min-height: 20vh;
+        width: 100%;
+    }
+    .placeholder-icon {
+        font-size: 3rem;
+        margin-bottom: 1rem;
+        opacity: 0.5;
+    }
+    .placeholder-text {
+        font-size: 1.1rem;
+        color: var(--muted);
+        text-align: center;
+    }
+    .slide-img {
+        max-width: 100%;
+        max-height: 60vh;
+        border-radius: 12px;
+        object-fit: contain;
+    }
+    .slide-video {
+        background: #000;
+        width: 100%;
+    }
+
+    /* === 圖片 / 影片並排 Gallery === */
+    .image-gallery {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 1rem;
+        justify-content: center;
+        align-items: flex-start;
+        width: 100%;
+    }
+    .gallery-item {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 0.4rem;
+        flex: 1 1 200px;
+        min-width: 0;
+    }
+    .gallery-img {
+        max-height: 40vh;
+        max-width: 100%;
+        border-radius: 8px;
+        object-fit: contain;
+        cursor: pointer;
+        transition: opacity 0.2s;
+    }
+    .gallery-img:hover { opacity: 0.88; }
+    .gallery-caption {
+        font-size: 0.72em;
+        color: var(--text-secondary);
+        text-align: center;
+        opacity: 0.8;
+    }
+
+    /* === Section 投影片 === */
+    .slide--section {
+        justify-content: center;
+        align-items: center;
+        text-align: center;
+    }
+    .section-content {
+        flex-shrink: 1;
+        margin-bottom: 1rem;
+    }
+    .section-accent-line {
+        width: 4rem;
+        height: 4px;
+        background: var(--accent);
+        margin: 0 auto 2rem;
+        border-radius: 2px;
+    }
+    .section-part-num {
+        font-size: 0.5em;
+        color: var(--accent);
+        font-weight: 400;
+        letter-spacing: 0.05em;
+    }
+    .section-title {
+        font-size: clamp(3.5rem, 8vw, 6.5rem);
+        font-weight: 700;
+        line-height: 1.2;
+        letter-spacing: 0.05em;
+        white-space: nowrap;
+        color: var(--accent);
+    }
+    .section-subtitle {
+        font-size: clamp(1.6rem, 3.2vw, 2.4rem);
+        color: var(--text-secondary);
+        margin-top: 1.2rem;
+    }
+    .section-with-flow {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 0;
+        height: 100%;
+        width: 100%;
+    }
+    .chapter-flow-compact {
+        width: 100%;
+        max-width: 1650px;
+        flex: 1;
+        min-height: 0;
+        margin: 0 auto;
+    }
+    .chapter-flow-compact svg {
+        width: 100%;
+        height: 100%;
+    }
+
+    /* === 目錄投影片（TOC） === */
+    .slide--toc {
+        justify-content: center;
+        align-items: center;
+        flex-direction: column;
+        gap: 1.8rem;
+    }
+    .toc-title {
+        font-size: clamp(2rem, 4.2vw, 3.8rem);
+        font-weight: 700;
+        color: var(--text-primary);
+        letter-spacing: 0.04em;
+    }
+    .chapter-flow-toc {
+        width: 100%;
+        max-width: 1650px;
+    }
+
+    /* === Demo 投影片 === */
+    .demo-badge {
+        display: inline-block;
+        background: var(--accent);
+        color: var(--bg);
+        font-size: 1.2rem;
+        font-weight: 700;
+        padding: 0.5rem 1.5rem;
+        border-radius: 2rem;
+        margin-bottom: 1.5rem;
+    }
+    .demo-steps {
+        list-style: none;
+        padding: 0;
+    }
+    .demo-steps li {
+        font-size: clamp(1.35rem, 2.4vw, 2rem);
+        padding: 1rem 0;
+        color: var(--text-secondary);
+        border-bottom: 1px solid var(--border);
+    }
+    .demo-steps li:last-child { border-bottom: none; }
+    .step-num {
+        display: inline-block;
+        background: var(--accent-light);
+        color: var(--accent);
+        font-weight: 700;
+        padding: 0.2rem 0.6rem;
+        border-radius: 6px;
+        margin-right: 0.5rem;
+        font-size: 0.85em;
+    }
+
+    /* === 對比/表格 === */
+    .card-table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: clamp(1.2rem, 2.2vw, 1.8rem);
+    }
+    .card-table th {
+        text-align: center;
+        padding: 1rem;
+        border-bottom: 3px solid var(--accent);
+        color: var(--text-primary);
+        font-weight: 700;
+    }
+    .card-table td {
+        text-align: center;
+        padding: 1rem 1.2rem;
+        border-bottom: 1px solid var(--border);
+        color: var(--text-secondary);
+    }
+    .card-table tr:last-child td { border-bottom: none; }
+
+    /* === 引言 === */
+    .slide--quote { align-items: center; text-align: center; }
+    .quote-content { max-width: 70%; }
+    .quote-mark {
+        font-size: 6rem;
+        color: var(--accent);
+        line-height: 1;
+        opacity: 0.3;
+    }
+    .quote-text {
+        font-size: clamp(2rem, 4.5vw, 3.5rem);
+        line-height: 1.5;
+        color: var(--text-secondary);
+        font-style: italic;
+    }
+
+    /* === Closing === */
+    .slide--closing { align-items: center; text-align: center; }
+    .closing-content { max-width: 70%; }
+    .closing-title {
+        font-size: clamp(2.5rem, 6vw, 5.2rem);
+        font-weight: 700;
+        margin-bottom: 2.5rem;
+    }
+    .closing-points {
+        list-style: none;
+        text-align: left;
+        display: inline-block;
+    }
+    .closing-points li {
+        font-size: clamp(1.4rem, 2.8vw, 2rem);
+        color: var(--text-secondary);
+        padding: 0.5rem 0;
+        padding-left: 1.5rem;
+        position: relative;
+    }
+    .closing-points li::before {
+        content: '';
+        position: absolute;
+        left: 0; top: 1rem;
+        width: 0.6rem; height: 3px;
+        background: var(--accent);
+        border-radius: 2px;
+    }
+
+    /* === 程式碼 === */
+    .code-card pre {
+        font-family: 'Consolas', 'Courier New', monospace;
+        font-size: 1.15rem;
+        line-height: 1.5;
+        overflow-x: auto;
+        color: var(--text-secondary);
+    }
+
+    /* === 投影片子標題（### heading） === */
+    .slide-subheading {
+        font-size: clamp(1rem, 1.8vw, 1.5rem);
+        font-weight: 600;
+        color: var(--accent);
+        margin-top: 1.1rem;
+        margin-bottom: 0.3rem;
+        padding-left: 0.6rem;
+        border-left: 3px solid var(--accent);
+        line-height: 1.3;
+    }
+
+    /* 行內 code：小框框樣式 */
+    :not(pre) > code {
+        font-family: 'Consolas', 'Courier New', monospace;
+        font-size: 0.82em;
+        background: var(--accent-light);
+        border: 1px solid var(--border);
+        border-radius: 4px;
+        padding: 0.1em 0.45em;
+        color: var(--accent);
+        white-space: nowrap;
+    }
+
+    /* 全形括號補充說明縮小 */
+    .aside-text {
+        font-size: 0.78em;
+        color: var(--text-secondary);
+        opacity: 0.85;
+    }
+
+    /* code block 內的超連結 */
+    .code-link {
+        color: var(--accent);
+        text-decoration: underline;
+        word-break: break-all;
+    }
+    .code-link:hover { opacity: 0.75; }
+
+    /* === 頁尾 === */
+    .slide-footer {
+        position: absolute;
+        bottom: 2vh;
+        left: 4vw;
+        right: 4vw;
+        display: grid;
+        grid-template-columns: 1fr auto 1fr;
+        align-items: center;
+        font-size: 0.85rem;
+        color: var(--muted);
+    }
+    .footer-left { }
+    .footer-author { text-align: center; }
+    .page-num { text-align: right; }
+
+    /* === 進度條 === */
+    .progress-bar {
+        position: fixed;
+        top: 0; left: 0;
+        height: 3px;
+        background: var(--accent);
+        transition: width 0.3s ease;
+        z-index: 100;
+    }
+
+    /* === 講者備註面板 === */
+    .notes-panel {
+        position: fixed;
+        bottom: 0; left: 0; right: 0;
+        background: rgba(0,0,0,0.92);
+        color: #eee;
+        padding: 1.5rem 3rem;
+        font-size: 1.1rem;
+        line-height: 1.6;
+        transform: translateY(100%);
+        transition: transform 0.3s ease;
+        z-index: 200;
+        max-height: 30vh;
+        overflow-y: auto;
+    }
+    .notes-panel.visible {
+        transform: translateY(0);
+    }
+    .notes-label {
+        font-size: 0.75rem;
+        text-transform: uppercase;
+        letter-spacing: 2px;
+        color: var(--accent);
+        margin-bottom: 0.5rem;
+    }
+
+    /* === 封面投影片 === */
+    .slide--cover {
+        justify-content: center;
+        align-items: center;
+        text-align: center;
+    }
+    .cover-title {
+        font-size: clamp(3.2rem, 7.5vw, 6.5rem);
+        font-weight: 700;
+        line-height: 1.1;
+        margin-bottom: 1.5rem;
+    }
+    .cover-subtitle {
+        font-size: clamp(1.8rem, 3.8vw, 3rem);
+        color: var(--text-secondary);
+        margin-bottom: 3rem;
+    }
+    .cover-meta {
+        font-size: 1rem;
+        color: var(--muted);
+    }
+
+    /* === 主題切換器 === */
+    .theme-switcher {
+        position: fixed;
+        top: 1.2rem;
+        right: 1.5rem;
+        z-index: 300;
+        display: flex;
+        gap: 0.5rem;
+        align-items: center;
+        background: var(--bg-card);
+        border: 1px solid var(--border);
+        border-radius: 2rem;
+        padding: 0.35rem 0.6rem;
+        box-shadow: 0 2px 12px var(--shadow);
+        opacity: 0.2;
+        transition: opacity 0.3s;
+    }
+    .theme-switcher:hover { opacity: 1; }
+    .theme-dot {
+        width: 1.1rem;
+        height: 1.1rem;
+        border-radius: 50%;
+        border: 2px solid transparent;
+        cursor: pointer;
+        transition: border-color 0.2s, transform 0.2s;
+    }
+    .theme-dot:hover { transform: scale(1.25); }
+    .theme-dot.active { border-color: var(--text-primary); transform: scale(1.2); }
+
+    /* === 編輯模式 === */
+    .edit-toolbar {
+        display: none;
+        position: fixed;
+        bottom: 1.5rem; left: 50%;
+        transform: translateX(-50%);
+        gap: 0.5rem;
+        align-items: center;
+        background: var(--bg-card);
+        border: 2px solid var(--accent);
+        border-radius: 1rem;
+        padding: 0.4rem 0.8rem;
+        z-index: 400;
+        box-shadow: 0 4px 20px var(--shadow);
+    }
+    .edit-toolbar button {
+        background: none;
+        border: 1px solid var(--border);
+        color: var(--text-primary);
+        padding: 0.4rem 0.8rem;
+        border-radius: 0.5rem;
+        cursor: pointer;
+        font-family: var(--font);
+        font-size: 0.85rem;
+        transition: background 0.2s;
+    }
+    .edit-toolbar button:hover { background: var(--accent-light); }
+    .edit-toolbar .btn-save {
+        background: var(--accent);
+        color: #fff;
+        border-color: var(--accent);
+        font-weight: 600;
+    }
+    .edit-toolbar .btn-save:hover { opacity: 0.85; }
+    .edit-toolbar .btn-snapshot {
+        background: none;
+        border-color: var(--muted);
+        color: var(--text-secondary);
+    }
+    .edit-toolbar .btn-snapshot:hover { background: var(--accent-light); color: var(--text-primary); }
+    .snapshot-modal {
+        display: none;
+        position: fixed;
+        inset: 0;
+        background: rgba(0,0,0,0.6);
+        z-index: 500;
+        align-items: center;
+        justify-content: center;
+    }
+    .snapshot-modal.visible { display: flex; }
+    .edit-btn {
+        position: fixed;
+        bottom: 1.5rem; left: 1.5rem;
+        background: var(--bg-card);
+        border: 1px solid var(--border);
+        color: var(--text-secondary);
+        width: 2.5rem; height: 2.5rem;
+        border-radius: 50%;
+        cursor: pointer;
+        font-size: 1.1rem;
+        z-index: 300;
+        box-shadow: 0 2px 8px var(--shadow);
+        display: flex; align-items: center; justify-content: center;
+        transition: background 0.2s;
+    }
+    .edit-btn:hover { background: var(--accent-light); }
+    body.edit-mode .edit-btn { background: var(--accent); color: #fff; border-color: var(--accent); }
+    body.edit-mode [contenteditable="true"] {
+        outline: 2px dashed var(--accent);
+        outline-offset: 4px;
+        border-radius: 4px;
+        min-height: 1em;
+    }
+    body.edit-mode [contenteditable="true"]:focus {
+        outline-style: solid;
+        background: var(--accent-light);
+    }
+
+    /* === 浮動圖片（可拖曳排版） === */
+    .floating-img-wrapper {
+        position: absolute;
+        cursor: move;
+        border: 2px solid transparent;
+        border-radius: 6px;
+        user-select: none;
+        z-index: 20;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        min-width: 60px;
+        min-height: 60px;
+    }
+    .floating-img-wrapper.selected {
+        border-color: var(--accent);
+        box-shadow: 0 0 0 3px var(--accent-light);
+    }
+    .floating-img-wrapper img,
+    .floating-img-wrapper video {
+        display: block;
+        width: 100%;
+        height: 100%;
+        object-fit: contain;
+        pointer-events: none;
+        border-radius: 4px;
+    }
+    .floating-img-wrapper video {
+        pointer-events: auto;
+    }
+    body.edit-mode .floating-img-wrapper video {
+        pointer-events: none;
+    }
+    .resize-handle {
+        position: absolute;
+        width: 10px;
+        height: 10px;
+        background: var(--accent);
+        border: 2px solid #fff;
+        border-radius: 2px;
+        display: none;
+        z-index: 21;
+        box-shadow: 0 1px 4px rgba(0,0,0,0.3);
+    }
+    .floating-img-wrapper.selected .resize-handle { display: block; }
+    .resize-handle.nw { top: -5px; left: -5px; cursor: nw-resize; }
+    .resize-handle.n  { top: -5px; left: calc(50% - 5px); cursor: n-resize; }
+    .resize-handle.ne { top: -5px; right: -5px; cursor: ne-resize; }
+    .resize-handle.e  { top: calc(50% - 5px); right: -5px; cursor: e-resize; }
+    .resize-handle.se { bottom: -5px; right: -5px; cursor: se-resize; }
+    .resize-handle.s  { bottom: -5px; left: calc(50% - 5px); cursor: s-resize; }
+    .resize-handle.sw { bottom: -5px; left: -5px; cursor: sw-resize; }
+    .resize-handle.w  { top: calc(50% - 5px); left: -5px; cursor: w-resize; }
+    .img-delete-btn {
+        position: absolute;
+        top: -14px; right: -14px;
+        width: 24px; height: 24px;
+        background: #e74c3c;
+        color: #fff;
+        border: 2px solid #fff;
+        border-radius: 50%;
+        display: none;
+        align-items: center;
+        justify-content: center;
+        font-size: 14px;
+        cursor: pointer;
+        line-height: 1;
+        z-index: 22;
+        box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+    }
+    .floating-img-wrapper.selected .img-delete-btn { display: flex; }
+    body.edit-mode .placeholder-img {
+        cursor: pointer;
+        transition: opacity 0.2s, border-color 0.2s;
+    }
+    body.edit-mode .placeholder-img:hover {
+        opacity: 0.7;
+        border-color: var(--accent);
+    }
+    body.edit-mode .placeholder-img::after {
+        content: '點擊上傳圖片';
+        position: absolute;
+        bottom: 0.5rem;
+        font-size: 0.75rem;
+        color: var(--accent);
+        opacity: 0.8;
+    }
+    body.edit-mode .placeholder-img { position: relative; }
+
+    .notes-edit-modal {
+        display: none;
+        position: fixed;
+        inset: 0;
+        background: rgba(0,0,0,0.6);
+        z-index: 500;
+        align-items: center;
+        justify-content: center;
+    }
+    .notes-edit-modal.visible { display: flex; }
+    .notes-edit-box {
+        background: var(--bg-card);
+        border-radius: 1rem;
+        padding: 2rem;
+        width: 90%;
+        max-width: 600px;
+        box-shadow: 0 8px 40px rgba(0,0,0,0.3);
+    }
+    .notes-edit-box textarea {
+        width: 100%;
+        min-height: 120px;
+        border: 1px solid var(--border);
+        border-radius: 0.5rem;
+        padding: 0.8rem;
+        font-family: var(--font);
+        font-size: 1rem;
+        resize: vertical;
+        background: var(--bg);
+        color: var(--text-primary);
+    }
+    .notes-edit-box h3 { margin-bottom: 0.8rem; color: var(--text-primary); }
+    .notes-edit-actions { margin-top: 1rem; display: flex; gap: 0.5rem; justify-content: flex-end; }
+    .notes-edit-actions button { padding: 0.5rem 1.2rem; border-radius: 0.5rem; cursor: pointer; border: 1px solid var(--border); background: var(--bg-card); color: var(--text-primary); font-family: var(--font); }
+    .notes-edit-actions .btn-ok { background: var(--accent); color: #fff; border-color: var(--accent); }
+    .save-toast {
+        position: fixed;
+        top: 2rem; left: 50%;
+        transform: translateX(-50%) translateY(-100px);
+        background: var(--accent);
+        color: #fff;
+        padding: 0.8rem 2rem;
+        border-radius: 2rem;
+        font-weight: 600;
+        z-index: 600;
+        transition: transform 0.4s ease;
+        pointer-events: none;
+    }
+    .save-toast.show { transform: translateX(-50%) translateY(0); }
+
+    /* === 側邊導覽列 === */
+    .nav-toggle {
+        position: fixed;
+        right: 1.5rem;
+        top: 50%;
+        transform: translateY(-50%);
+        background: var(--bg-card);
+        border: 1px solid var(--border);
+        color: var(--text-secondary);
+        width: 2rem; height: 2rem;
+        border-radius: 50%;
+        cursor: pointer;
+        font-size: 0.8rem;
+        z-index: 350;
+        box-shadow: 0 2px 8px var(--shadow);
+        display: flex; align-items: center; justify-content: center;
+        transition: background 0.2s, right 0.3s;
+        opacity: 0.5;
+    }
+    .nav-toggle:hover { opacity: 1; }
+    body.nav-open .nav-toggle { right: 17rem; opacity: 1; }
+    .nav-sidebar {
+        position: fixed;
+        top: 0; right: 0;
+        width: 16rem;
+        height: 100vh;
+        background: var(--bg-card);
+        border-left: 1px solid var(--border);
+        box-shadow: -4px 0 20px var(--shadow);
+        z-index: 340;
+        transform: translateX(100%);
+        transition: transform 0.3s ease;
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+    }
+    body.nav-open .nav-sidebar { transform: translateX(0); }
+    .nav-header {
+        padding: 1rem 1.2rem 0.5rem;
+        font-size: 0.75rem;
+        text-transform: uppercase;
+        letter-spacing: 1.5px;
+        color: var(--muted);
+        border-bottom: 1px solid var(--border);
+    }
+    .nav-list {
+        flex: 1;
+        overflow-y: auto;
+        padding: 0.5rem 0;
+        list-style: none;
+    }
+    .nav-list::-webkit-scrollbar { width: 3px; }
+    .nav-list::-webkit-scrollbar-thumb { background: var(--muted); border-radius: 2px; }
+    .nav-item {
+        padding: 0.45rem 1.2rem;
+        font-size: 0.82rem;
+        color: var(--text-secondary);
+        cursor: pointer;
+        transition: background 0.15s;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        border-left: 3px solid transparent;
+    }
+    .nav-item:hover { background: var(--accent-light); }
+    .nav-item.active { color: var(--accent); border-left-color: var(--accent); font-weight: 600; }
+    .nav-item.nav-section {
+        font-weight: 700;
+        color: var(--text-primary);
+        margin-top: 0.3rem;
+        font-size: 0.85rem;
+    }
+
+    /* === 圖片縮放預覽 (Lightbox) === */
+    .image-modal {
+        display: none;
+        position: fixed;
+        inset: 0;
+        background: rgba(0,0,0,0.96);
+        z-index: 1000;
+        align-items: center;
+        justify-content: center;
+        cursor: crosshair;
+        user-select: none;
+    }
+    .image-modal.visible { display: flex; }
+    .image-modal-close {
+        position: absolute;
+        top: 1.5rem; right: 2rem;
+        color: #fff; font-size: 2.5rem;
+        cursor: pointer; z-index: 1001;
+        opacity: 0.6; transition: opacity 0.2s;
+    }
+    .image-modal-close:hover { opacity: 1; }
+    .modal-viewport {
+        width: 100%; height: 100%;
+        display: flex; align-items: center; justify-content: center;
+        overflow: hidden;
+    }
+    .modal-img {
+        max-width: 90%; max-height: 90%;
+        object-fit: contain;
+        transition: transform 0.1s ease-out;
+        cursor: grab;
+        transform-origin: center center;
+    }
+    .modal-img.dragging { cursor: grabbing; transition: none; }
+    .zoom-hint {
+        position: absolute; bottom: 1.5rem; left: 50%;
+        transform: translateX(-50%);
+        color: #888; font-size: 0.9rem;
+        background: rgba(0,0,0,0.5);
+        padding: 0.4rem 1.2rem; border-radius: 2rem;
+        pointer-events: none;
+    }
+
+    /* === 列印 PDF === */
+    @media print {
+        html, body { overflow: visible; height: auto; }
+        .progress-bar, .notes-panel, .theme-switcher, .edit-btn, .edit-toolbar, .notes-edit-modal, .save-toast, .nav-sidebar, .nav-toggle, .image-modal { display: none !important; }
+        .slide {
+            position: relative;
+            opacity: 1;
+            pointer-events: auto;
+            page-break-after: always;
+            page-break-inside: avoid;
+            min-height: 100vh;
+            width: 100vw;
+        }
+        .page-num { position: absolute; }
+    }
+    </style>
+</head>
+<body data-frontmatter="---
+title: Revit MCP開發二例
+subtitle: &quot;SD外牆帷幕板排列 / DD排煙窗檢討&quot;
+author: &quot;黃任遠 Alex Huang&quot;
+date: &quot;2026-03-28&quot;
+duration: 20
+theme: &quot;architect-dark&quot;
+image_mode: &quot;placeholder&quot;
+project_path: &quot;C:/Project/REVIT_MCP_study&quot;
+---">
+<div class="theme-switcher"><div class="theme-dot" data-theme="minimal-white" style="background:#007ACC;" title="極簡白"></div><div class="theme-dot" data-theme="architect-dark" style="background:#D4A853;" title="建築深色"></div><div class="theme-dot" data-theme="blueprint" style="background:#5DADE2;" title="藍圖"></div><div class="theme-dot" data-theme="concrete" style="background:#8B4513;" title="清水模"></div><div class="theme-dot" data-theme="nature" style="background:#27AE60;" title="自然"></div></div>
+<div class="progress-bar" style="width: 2.6%"></div>
+<div class="deck">
+
+    <section class="slide slide--cover active">
+        <div>
+            <h1 class="cover-title">Revit MCP開發二例</h1>
+            <p class="cover-subtitle">SD外牆帷幕板排列 / DD排煙窗檢討</p>
+            <p class="cover-meta">黃任遠 Alex Huang | 2026-03-28</p>
+        </div>
+    </section><section class="slide slide--toc"><h2 class="toc-title">今天的路線圖</h2><div class="chapter-flow-toc"><svg viewBox="0 0 2600 700" xmlns="http://www.w3.org/2000/svg" style="width:100%;max-height:850px">
+<line x1="532" y1="308" x2="553" y2="308" stroke="var(--muted,#555)" stroke-width="2"/>
+<polygon points="562,308 552,303 552,313" fill="var(--muted,#555)"/>
+<line x1="1034" y1="308" x2="1055" y2="308" stroke="var(--muted,#555)" stroke-width="2"/>
+<polygon points="1064,308 1054,303 1054,313" fill="var(--muted,#555)"/>
+<line x1="1536" y1="308" x2="1557" y2="308" stroke="var(--muted,#555)" stroke-width="2"/>
+<polygon points="1566,308 1556,303 1556,313" fill="var(--muted,#555)"/>
+<line x1="2038" y1="308" x2="2059" y2="308" stroke="var(--muted,#555)" stroke-width="2"/>
+<polygon points="2068,308 2058,303 2058,313" fill="var(--muted,#555)"/>
+<defs><clipPath id="clip_sec_0"><rect x="60.0" y="98.0" width="472" height="420" rx="10"/></clipPath></defs>
+<rect x="60.0" y="98.0" width="472" height="420" rx="10" fill="var(--bg-card,#1a1a1a)" stroke="var(--accent,#D4A853)" stroke-width="2" opacity="1"/>
+<text x="296.0" y="215.6" text-anchor="middle" font-family="var(--font,sans-serif)" font-size="28" fill="var(--muted,#888)" opacity="1" clip-path="url(#clip_sec_0)">Part 1</text>
+<text x="296.0" y="371.0" text-anchor="middle" font-family="var(--font,sans-serif)" font-size="58" font-weight="700" fill="var(--text-primary,#fff)" opacity="1" clip-path="url(#clip_sec_0)">問題闡述</text>
+<text x="296.0" y="593.0" text-anchor="middle" font-family="var(--font,sans-serif)" font-size="29" fill="var(--muted,#888)" opacity="1">約 2 分鐘</text>
+<defs><clipPath id="clip_sec_1"><rect x="562.0" y="98.0" width="472" height="420" rx="10"/></clipPath></defs>
+<rect x="562.0" y="98.0" width="472" height="420" rx="10" fill="var(--bg-card,#1a1a1a)" stroke="var(--accent,#D4A853)" stroke-width="2" opacity="1"/>
+<text x="798.0" y="215.6" text-anchor="middle" font-family="var(--font,sans-serif)" font-size="28" fill="var(--muted,#888)" opacity="1" clip-path="url(#clip_sec_1)">Part 2</text>
+<text x="798.0" y="371.0" text-anchor="middle" font-family="var(--font,sans-serif)" font-size="58" font-weight="700" fill="var(--text-primary,#fff)" opacity="1" clip-path="url(#clip_sec_1)">解方</text>
+<text x="798.0" y="593.0" text-anchor="middle" font-family="var(--font,sans-serif)" font-size="29" fill="var(--muted,#888)" opacity="1">約 2 分鐘</text>
+<defs><clipPath id="clip_sec_2"><rect x="1064.0" y="98.0" width="472" height="420" rx="10"/></clipPath></defs>
+<rect x="1064.0" y="98.0" width="472" height="420" rx="10" fill="var(--bg-card,#1a1a1a)" stroke="var(--accent,#D4A853)" stroke-width="2" opacity="1"/>
+<text x="1300.0" y="215.6" text-anchor="middle" font-family="var(--font,sans-serif)" font-size="28" fill="var(--muted,#888)" opacity="1" clip-path="url(#clip_sec_2)">Part 3</text>
+<text x="1300.0" y="316.4" text-anchor="middle" font-family="var(--font,sans-serif)" font-size="58" font-weight="700" fill="var(--text-primary,#fff)" opacity="1" clip-path="url(#clip_sec_2)"><tspan x="1300.0">Domain 案例一</tspan><tspan x="1300.0" dy="69">排煙窗法規檢討</tspan></text>
+<text x="1300.0" y="593.0" text-anchor="middle" font-family="var(--font,sans-serif)" font-size="29" fill="var(--muted,#888)" opacity="1">約 6 分鐘</text>
+<defs><clipPath id="clip_sec_3"><rect x="1566.0" y="98.0" width="472" height="420" rx="10"/></clipPath></defs>
+<rect x="1566.0" y="98.0" width="472" height="420" rx="10" fill="var(--bg-card,#1a1a1a)" stroke="var(--accent,#D4A853)" stroke-width="2" opacity="1"/>
+<text x="1802.0" y="215.6" text-anchor="middle" font-family="var(--font,sans-serif)" font-size="28" fill="var(--muted,#888)" opacity="1" clip-path="url(#clip_sec_3)">Part 4</text>
+<text x="1802.0" y="316.4" text-anchor="middle" font-family="var(--font,sans-serif)" font-size="58" font-weight="700" fill="var(--text-primary,#fff)" opacity="1" clip-path="url(#clip_sec_3)"><tspan x="1802.0">Domain 案例二</tspan><tspan x="1802.0" dy="69">帷幕牆面板排列</tspan></text>
+<text x="1802.0" y="593.0" text-anchor="middle" font-family="var(--font,sans-serif)" font-size="29" fill="var(--muted,#888)" opacity="1">約 5 分鐘</text>
+<defs><clipPath id="clip_sec_4"><rect x="2068.0" y="98.0" width="472" height="420" rx="10"/></clipPath></defs>
+<rect x="2068.0" y="98.0" width="472" height="420" rx="10" fill="var(--bg-card,#1a1a1a)" stroke="var(--accent,#D4A853)" stroke-width="2" opacity="1"/>
+<text x="2304.0" y="215.6" text-anchor="middle" font-family="var(--font,sans-serif)" font-size="28" fill="var(--muted,#888)" opacity="1" clip-path="url(#clip_sec_4)">Part 5</text>
+<text x="2304.0" y="371.0" text-anchor="middle" font-family="var(--font,sans-serif)" font-size="58" font-weight="700" fill="var(--text-primary,#fff)" opacity="1" clip-path="url(#clip_sec_4)">結尾</text>
+<text x="2304.0" y="593.0" text-anchor="middle" font-family="var(--font,sans-serif)" font-size="29" fill="var(--muted,#888)" opacity="1">約 2 分鐘</text>
+</svg></div></section><section class="slide slide--section">
+        <div class="section-with-flow">
+            <div class="section-content">
+                <div class="section-accent-line"></div>
+                <h1 class="section-title">Part 1</h1>
+                
+            </div>
+            <div class="chapter-flow-compact"><svg viewBox="0 0 2600 700" xmlns="http://www.w3.org/2000/svg" style="width:100%;">
+<line x1="532" y1="350" x2="553" y2="350" stroke="var(--muted,#555)" stroke-width="2"/>
+<polygon points="562,350 552,345 552,355" fill="var(--muted,#555)"/>
+<line x1="1034" y1="350" x2="1055" y2="350" stroke="var(--muted,#555)" stroke-width="2"/>
+<polygon points="1064,350 1054,345 1054,355" fill="var(--muted,#555)"/>
+<line x1="1536" y1="350" x2="1557" y2="350" stroke="var(--muted,#555)" stroke-width="2"/>
+<polygon points="1566,350 1556,345 1556,355" fill="var(--muted,#555)"/>
+<line x1="2038" y1="350" x2="2059" y2="350" stroke="var(--muted,#555)" stroke-width="2"/>
+<polygon points="2068,350 2058,345 2058,355" fill="var(--muted,#555)"/>
+<polygon points="296,124 288,137 304,137" fill="var(--accent,#D4A853)"/>
+<defs><clipPath id="clip_sec_0"><rect x="60.0" y="140.0" width="472" height="420" rx="10"/></clipPath></defs>
+<rect x="60.0" y="140.0" width="472" height="420" rx="10" fill="var(--accent,#D4A853)" stroke="var(--accent,#D4A853)" stroke-width="3" opacity="1"/>
+<text x="296.0" y="257.6" text-anchor="middle" font-family="var(--font,sans-serif)" font-size="28" fill="#ffffff" opacity="1" clip-path="url(#clip_sec_0)">Part 1</text>
+<text x="296.0" y="413.0" text-anchor="middle" font-family="var(--font,sans-serif)" font-size="58" font-weight="700" fill="#ffffff" opacity="1" clip-path="url(#clip_sec_0)">問題闡述</text>
+<defs><clipPath id="clip_sec_1"><rect x="562.0" y="140.0" width="472" height="420" rx="10"/></clipPath></defs>
+<rect x="562.0" y="140.0" width="472" height="420" rx="10" fill="var(--bg-card,#1a1a1a)" stroke="var(--border,#333)" stroke-width="1.5" opacity="0.38"/>
+<text x="798.0" y="257.6" text-anchor="middle" font-family="var(--font,sans-serif)" font-size="28" fill="var(--muted,#666)" opacity="0.38" clip-path="url(#clip_sec_1)">Part 2</text>
+<text x="798.0" y="413.0" text-anchor="middle" font-family="var(--font,sans-serif)" font-size="58" font-weight="700" fill="var(--muted,#666)" opacity="0.38" clip-path="url(#clip_sec_1)">解方</text>
+<defs><clipPath id="clip_sec_2"><rect x="1064.0" y="140.0" width="472" height="420" rx="10"/></clipPath></defs>
+<rect x="1064.0" y="140.0" width="472" height="420" rx="10" fill="var(--bg-card,#1a1a1a)" stroke="var(--border,#333)" stroke-width="1.5" opacity="0.38"/>
+<text x="1300.0" y="257.6" text-anchor="middle" font-family="var(--font,sans-serif)" font-size="28" fill="var(--muted,#666)" opacity="0.38" clip-path="url(#clip_sec_2)">Part 3</text>
+<text x="1300.0" y="358.4" text-anchor="middle" font-family="var(--font,sans-serif)" font-size="58" font-weight="700" fill="var(--muted,#666)" opacity="0.38" clip-path="url(#clip_sec_2)"><tspan x="1300.0">Domain 案例一</tspan><tspan x="1300.0" dy="69">排煙窗法規檢討</tspan></text>
+<defs><clipPath id="clip_sec_3"><rect x="1566.0" y="140.0" width="472" height="420" rx="10"/></clipPath></defs>
+<rect x="1566.0" y="140.0" width="472" height="420" rx="10" fill="var(--bg-card,#1a1a1a)" stroke="var(--border,#333)" stroke-width="1.5" opacity="0.38"/>
+<text x="1802.0" y="257.6" text-anchor="middle" font-family="var(--font,sans-serif)" font-size="28" fill="var(--muted,#666)" opacity="0.38" clip-path="url(#clip_sec_3)">Part 4</text>
+<text x="1802.0" y="358.4" text-anchor="middle" font-family="var(--font,sans-serif)" font-size="58" font-weight="700" fill="var(--muted,#666)" opacity="0.38" clip-path="url(#clip_sec_3)"><tspan x="1802.0">Domain 案例二</tspan><tspan x="1802.0" dy="69">帷幕牆面板排列</tspan></text>
+<defs><clipPath id="clip_sec_4"><rect x="2068.0" y="140.0" width="472" height="420" rx="10"/></clipPath></defs>
+<rect x="2068.0" y="140.0" width="472" height="420" rx="10" fill="var(--bg-card,#1a1a1a)" stroke="var(--border,#333)" stroke-width="1.5" opacity="0.38"/>
+<text x="2304.0" y="257.6" text-anchor="middle" font-family="var(--font,sans-serif)" font-size="28" fill="var(--muted,#666)" opacity="0.38" clip-path="url(#clip_sec_4)">Part 5</text>
+<text x="2304.0" y="413.0" text-anchor="middle" font-family="var(--font,sans-serif)" font-size="58" font-weight="700" fill="var(--muted,#666)" opacity="0.38" clip-path="url(#clip_sec_4)">結尾</text>
+</svg></div>
+        </div></section><section class="slide slide--content">
+            <h2 class="slide-title">兩個重複性的工作</h2>
+            <div class="card content-card"><ul class="bullet-list"><li><strong>SD方案階段/ 外牆排列方案</strong></li><li><strong>DD建照階段/ 排煙窗檢討</strong></li></ul></div><div class="slide-footer"><span class="footer-left"></span><span class="footer-author">黃任遠 Alex Huang | 2026-03-28</span><span class="page-num">3 / 39</span></div></section><section class="slide slide--content">
+            <h2 class="slide-title">SD方案階段/ 外牆排列方案</h2>
+            <div class="card content-card"><p class="body-text">跟業主討論外牆面板排列方案，每種方案都要一片片手動改 Revit</p></div><div class="slide-footer"><span class="footer-left"></span><span class="footer-author">黃任遠 Alex Huang | 2026-03-28</span><span class="page-num">4 / 39</span></div></section><section class="slide slide--content">
+            <h2 class="slide-title">DD建照階段/ 排煙窗檢討</h2>
+            <div class="card content-card"><p class="body-text">每個房間都要對照法規算一遍，還要再手動整理成 Excel 給技師看</p></div><div class="slide-footer"><span class="footer-left"></span><span class="footer-author">黃任遠 Alex Huang | 2026-03-28</span><span class="page-num">5 / 39</span></div></section><section class="slide slide--content" data-notes="強調這不是「技術展示」，是真實工作中的痛點。「我不是工程師，我只是很厭倦重複做這些事。」">
+            <h2 class="slide-title">傳統作法耗費時間</h2>
+            <div class="card table-card"><table class="card-table"><thead><tr><th>工作項目</th><th>傳統做法</th><th>耗時估算</th></tr></thead><tbody><tr><td>帷幕牆面板方案</td><td>手繪/AI Studio 小工具+ Revit 手動逐格改</td><td>每個方案 0.5-1 小時</td></tr><tr><td>排煙窗法規檢討</td><td>對照法規逐間計算 + 手動整理 Excel</td><td>一棟建築 半天起</td></tr></tbody></table></div><div class="slide-footer"><span class="footer-left"></span><span class="footer-author">黃任遠 Alex Huang | 2026-03-28</span><span class="page-num">6 / 39</span></div></section><section class="slide slide--section">
+        <div class="section-with-flow">
+            <div class="section-content">
+                <div class="section-accent-line"></div>
+                <h1 class="section-title">Part 2</h1>
+                
+            </div>
+            <div class="chapter-flow-compact"><svg viewBox="0 0 2600 700" xmlns="http://www.w3.org/2000/svg" style="width:100%;">
+<line x1="532" y1="350" x2="553" y2="350" stroke="var(--muted,#555)" stroke-width="2"/>
+<polygon points="562,350 552,345 552,355" fill="var(--muted,#555)"/>
+<line x1="1034" y1="350" x2="1055" y2="350" stroke="var(--muted,#555)" stroke-width="2"/>
+<polygon points="1064,350 1054,345 1054,355" fill="var(--muted,#555)"/>
+<line x1="1536" y1="350" x2="1557" y2="350" stroke="var(--muted,#555)" stroke-width="2"/>
+<polygon points="1566,350 1556,345 1556,355" fill="var(--muted,#555)"/>
+<line x1="2038" y1="350" x2="2059" y2="350" stroke="var(--muted,#555)" stroke-width="2"/>
+<polygon points="2068,350 2058,345 2058,355" fill="var(--muted,#555)"/>
+<defs><clipPath id="clip_sec_0"><rect x="60.0" y="140.0" width="472" height="420" rx="10"/></clipPath></defs>
+<rect x="60.0" y="140.0" width="472" height="420" rx="10" fill="var(--bg-card,#1a1a1a)" stroke="var(--border,#333)" stroke-width="1.5" opacity="0.38"/>
+<text x="296.0" y="257.6" text-anchor="middle" font-family="var(--font,sans-serif)" font-size="28" fill="var(--muted,#666)" opacity="0.38" clip-path="url(#clip_sec_0)">Part 1</text>
+<text x="296.0" y="413.0" text-anchor="middle" font-family="var(--font,sans-serif)" font-size="58" font-weight="700" fill="var(--muted,#666)" opacity="0.38" clip-path="url(#clip_sec_0)">問題闡述</text>
+<polygon points="798,124 790,137 806,137" fill="var(--accent,#D4A853)"/>
+<defs><clipPath id="clip_sec_1"><rect x="562.0" y="140.0" width="472" height="420" rx="10"/></clipPath></defs>
+<rect x="562.0" y="140.0" width="472" height="420" rx="10" fill="var(--accent,#D4A853)" stroke="var(--accent,#D4A853)" stroke-width="3" opacity="1"/>
+<text x="798.0" y="257.6" text-anchor="middle" font-family="var(--font,sans-serif)" font-size="28" fill="#ffffff" opacity="1" clip-path="url(#clip_sec_1)">Part 2</text>
+<text x="798.0" y="413.0" text-anchor="middle" font-family="var(--font,sans-serif)" font-size="58" font-weight="700" fill="#ffffff" opacity="1" clip-path="url(#clip_sec_1)">解方</text>
+<defs><clipPath id="clip_sec_2"><rect x="1064.0" y="140.0" width="472" height="420" rx="10"/></clipPath></defs>
+<rect x="1064.0" y="140.0" width="472" height="420" rx="10" fill="var(--bg-card,#1a1a1a)" stroke="var(--border,#333)" stroke-width="1.5" opacity="0.38"/>
+<text x="1300.0" y="257.6" text-anchor="middle" font-family="var(--font,sans-serif)" font-size="28" fill="var(--muted,#666)" opacity="0.38" clip-path="url(#clip_sec_2)">Part 3</text>
+<text x="1300.0" y="358.4" text-anchor="middle" font-family="var(--font,sans-serif)" font-size="58" font-weight="700" fill="var(--muted,#666)" opacity="0.38" clip-path="url(#clip_sec_2)"><tspan x="1300.0">Domain 案例一</tspan><tspan x="1300.0" dy="69">排煙窗法規檢討</tspan></text>
+<defs><clipPath id="clip_sec_3"><rect x="1566.0" y="140.0" width="472" height="420" rx="10"/></clipPath></defs>
+<rect x="1566.0" y="140.0" width="472" height="420" rx="10" fill="var(--bg-card,#1a1a1a)" stroke="var(--border,#333)" stroke-width="1.5" opacity="0.38"/>
+<text x="1802.0" y="257.6" text-anchor="middle" font-family="var(--font,sans-serif)" font-size="28" fill="var(--muted,#666)" opacity="0.38" clip-path="url(#clip_sec_3)">Part 4</text>
+<text x="1802.0" y="358.4" text-anchor="middle" font-family="var(--font,sans-serif)" font-size="58" font-weight="700" fill="var(--muted,#666)" opacity="0.38" clip-path="url(#clip_sec_3)"><tspan x="1802.0">Domain 案例二</tspan><tspan x="1802.0" dy="69">帷幕牆面板排列</tspan></text>
+<defs><clipPath id="clip_sec_4"><rect x="2068.0" y="140.0" width="472" height="420" rx="10"/></clipPath></defs>
+<rect x="2068.0" y="140.0" width="472" height="420" rx="10" fill="var(--bg-card,#1a1a1a)" stroke="var(--border,#333)" stroke-width="1.5" opacity="0.38"/>
+<text x="2304.0" y="257.6" text-anchor="middle" font-family="var(--font,sans-serif)" font-size="28" fill="var(--muted,#666)" opacity="0.38" clip-path="url(#clip_sec_4)">Part 5</text>
+<text x="2304.0" y="413.0" text-anchor="middle" font-family="var(--font,sans-serif)" font-size="58" font-weight="700" fill="var(--muted,#666)" opacity="0.38" clip-path="url(#clip_sec_4)">結尾</text>
+</svg></div>
+        </div></section><section class="slide slide--content">
+            <h2 class="slide-title">AI協作流程</h2>
+            <div class="card content-card"><p class="body-text">1. 提供 AI 我已知的工作流程</p><p class="body-text">2. 持續和AI討論規格，讓AI 補充細節、闕漏、矛盾點，或上網搜尋最佳實踐，並協助建立流程圖</p><p class="body-text">3. 最後請AI依規格開發出MCP工具</p></div><div class="slide-footer"><span class="footer-left"></span><span class="footer-author">黃任遠 Alex Huang | 2026-03-28</span><span class="page-num">8 / 39</span></div></section><section class="slide slide--content">
+            <h2 class="slide-title">層級關係：Skill<span class="aside-text">（技能）</span>、Domains<span class="aside-text">（領域知識）</span>、Tools<span class="aside-text">（工具）</span></h2>
+            <div class="card content-card"><p class="body-text">1. <strong>Skill (技能)</strong>：解決問題的「大類別」<span class="aside-text">（例如：【法規自動化檢討】）</span></p><p class="body-text">2. <strong>Domains (領域)</strong>：解決特定法規或特定工作流的「邏輯組合」<span class="aside-text">（例如：排煙窗檢討、居室採光檢討）</span></p><p class="body-text">3. <strong>Tools (工具)</strong>：執行任務的「最小單元」，具備高度共用性<span class="aside-text">（例如：<code>get_room_info</code>、<code>create_dimension</code>）</span></p></div><div class="slide-footer"><span class="footer-left"></span><span class="footer-author">黃任遠 Alex Huang | 2026-03-28</span><span class="page-num">9 / 39</span></div></section><section class="slide slide--content">
+            <h2 class="slide-title">Skill-Domains-Tools 三者關係舉例-1</h2>
+            <div class="card content-card"><h3 class="slide-subheading">Domain 共用 Tool</h3><p class="body-text">+ <strong>【排煙窗檢討 Domain】</strong> 需要：tool&quot;取得房間面積&quot; (取 2%) + tool&quot;取得窗戶面積&quot; (取折減係數)。</p><p class="body-text">+ <strong>【採光檢討 Domain】</strong> 需要：tool&quot;取得房間面積&quot; (取 1/8) + tool&quot;取得窗戶面積&quot; (取台度 75cm 以上)。</p><p class="body-text">+ <strong>技術共享</strong>：雖然法規檢討流程中，有效面積計算不同，但「取得房間面積、取得窗戶面積」的動作是重疊的。</p></div><div class="slide-footer"><span class="footer-left"></span><span class="footer-author">黃任遠 Alex Huang | 2026-03-28</span><span class="page-num">10 / 39</span></div></section><section class="slide slide--content">
+            <h2 class="slide-title">Skill-Domains-Tools 三者關係舉例-2</h2>
+            <div class="card content-card"><h3 class="slide-subheading">Tool 被多個 Domain 共用</h3><p class="body-text">+ 在 <strong>【排煙檢討】</strong> 中：用來標註窗戶在「天花板下 80cm 有效帶」內的實際開啟高度。</p><p class="body-text">+ 在 <strong>【走廊分析】</strong> 中：用來標註走廊的淨寬度。</p><p class="body-text">+ 在 <strong>【自動標註】</strong> 中：用來標註房間與四周牆體的距離<span class="aside-text">（如：<code>check_exterior_wall_openings</code>）</span>。</p><p class="body-text">+ <strong>結論</strong>： 只需要開發一次 <code>create_dimension</code> 的 C# 命令，就能支援多個不同 Domains 的視覺化回饋。</p></div><div class="slide-footer"><span class="footer-left"></span><span class="footer-author">黃任遠 Alex Huang | 2026-03-28</span><span class="page-num">11 / 39</span></div></section><section class="slide slide--section">
+        <div class="section-with-flow">
+            <div class="section-content">
+                <div class="section-accent-line"></div>
+                <h1 class="section-title">Part 3</h1>
+                
+            </div>
+            <div class="chapter-flow-compact"><svg viewBox="0 0 2600 700" xmlns="http://www.w3.org/2000/svg" style="width:100%;">
+<line x1="532" y1="350" x2="553" y2="350" stroke="var(--muted,#555)" stroke-width="2"/>
+<polygon points="562,350 552,345 552,355" fill="var(--muted,#555)"/>
+<line x1="1034" y1="350" x2="1055" y2="350" stroke="var(--muted,#555)" stroke-width="2"/>
+<polygon points="1064,350 1054,345 1054,355" fill="var(--muted,#555)"/>
+<line x1="1536" y1="350" x2="1557" y2="350" stroke="var(--muted,#555)" stroke-width="2"/>
+<polygon points="1566,350 1556,345 1556,355" fill="var(--muted,#555)"/>
+<line x1="2038" y1="350" x2="2059" y2="350" stroke="var(--muted,#555)" stroke-width="2"/>
+<polygon points="2068,350 2058,345 2058,355" fill="var(--muted,#555)"/>
+<defs><clipPath id="clip_sec_0"><rect x="60.0" y="140.0" width="472" height="420" rx="10"/></clipPath></defs>
+<rect x="60.0" y="140.0" width="472" height="420" rx="10" fill="var(--bg-card,#1a1a1a)" stroke="var(--border,#333)" stroke-width="1.5" opacity="0.38"/>
+<text x="296.0" y="257.6" text-anchor="middle" font-family="var(--font,sans-serif)" font-size="28" fill="var(--muted,#666)" opacity="0.38" clip-path="url(#clip_sec_0)">Part 1</text>
+<text x="296.0" y="413.0" text-anchor="middle" font-family="var(--font,sans-serif)" font-size="58" font-weight="700" fill="var(--muted,#666)" opacity="0.38" clip-path="url(#clip_sec_0)">問題闡述</text>
+<defs><clipPath id="clip_sec_1"><rect x="562.0" y="140.0" width="472" height="420" rx="10"/></clipPath></defs>
+<rect x="562.0" y="140.0" width="472" height="420" rx="10" fill="var(--bg-card,#1a1a1a)" stroke="var(--border,#333)" stroke-width="1.5" opacity="0.38"/>
+<text x="798.0" y="257.6" text-anchor="middle" font-family="var(--font,sans-serif)" font-size="28" fill="var(--muted,#666)" opacity="0.38" clip-path="url(#clip_sec_1)">Part 2</text>
+<text x="798.0" y="413.0" text-anchor="middle" font-family="var(--font,sans-serif)" font-size="58" font-weight="700" fill="var(--muted,#666)" opacity="0.38" clip-path="url(#clip_sec_1)">解方</text>
+<polygon points="1300,124 1292,137 1308,137" fill="var(--accent,#D4A853)"/>
+<defs><clipPath id="clip_sec_2"><rect x="1064.0" y="140.0" width="472" height="420" rx="10"/></clipPath></defs>
+<rect x="1064.0" y="140.0" width="472" height="420" rx="10" fill="var(--accent,#D4A853)" stroke="var(--accent,#D4A853)" stroke-width="3" opacity="1"/>
+<text x="1300.0" y="257.6" text-anchor="middle" font-family="var(--font,sans-serif)" font-size="28" fill="#ffffff" opacity="1" clip-path="url(#clip_sec_2)">Part 3</text>
+<text x="1300.0" y="358.4" text-anchor="middle" font-family="var(--font,sans-serif)" font-size="58" font-weight="700" fill="#ffffff" opacity="1" clip-path="url(#clip_sec_2)"><tspan x="1300.0">Domain 案例一</tspan><tspan x="1300.0" dy="69">排煙窗法規檢討</tspan></text>
+<defs><clipPath id="clip_sec_3"><rect x="1566.0" y="140.0" width="472" height="420" rx="10"/></clipPath></defs>
+<rect x="1566.0" y="140.0" width="472" height="420" rx="10" fill="var(--bg-card,#1a1a1a)" stroke="var(--border,#333)" stroke-width="1.5" opacity="0.38"/>
+<text x="1802.0" y="257.6" text-anchor="middle" font-family="var(--font,sans-serif)" font-size="28" fill="var(--muted,#666)" opacity="0.38" clip-path="url(#clip_sec_3)">Part 4</text>
+<text x="1802.0" y="358.4" text-anchor="middle" font-family="var(--font,sans-serif)" font-size="58" font-weight="700" fill="var(--muted,#666)" opacity="0.38" clip-path="url(#clip_sec_3)"><tspan x="1802.0">Domain 案例二</tspan><tspan x="1802.0" dy="69">帷幕牆面板排列</tspan></text>
+<defs><clipPath id="clip_sec_4"><rect x="2068.0" y="140.0" width="472" height="420" rx="10"/></clipPath></defs>
+<rect x="2068.0" y="140.0" width="472" height="420" rx="10" fill="var(--bg-card,#1a1a1a)" stroke="var(--border,#333)" stroke-width="1.5" opacity="0.38"/>
+<text x="2304.0" y="257.6" text-anchor="middle" font-family="var(--font,sans-serif)" font-size="28" fill="var(--muted,#666)" opacity="0.38" clip-path="url(#clip_sec_4)">Part 5</text>
+<text x="2304.0" y="413.0" text-anchor="middle" font-family="var(--font,sans-serif)" font-size="58" font-weight="700" fill="var(--muted,#666)" opacity="0.38" clip-path="url(#clip_sec_4)">結尾</text>
+</svg></div>
+        </div></section><section class="slide slide--image">
+        <h2 class="slide-title">排煙窗法規檢討成果</h2>
+        <div class="image-full"><div class="image-gallery"><figure class="gallery-item"><img src="image/排煙窗_案例.jpg" alt="排煙窗_案例" class="slide-img gallery-img"><figcaption class="gallery-caption">排煙窗_案例</figcaption></figure><figure class="gallery-item"><img src="image/排煙窗_對話框中的成果.jpg" alt="排煙窗_對話框中的成果" class="slide-img gallery-img"><figcaption class="gallery-caption">排煙窗_對話框中的成果</figcaption></figure><figure class="gallery-item"><img src="image/排煙窗_立面標示.jpg" alt="排煙窗_立面標示" class="slide-img gallery-img"><figcaption class="gallery-caption">排煙窗_立面標示</figcaption></figure></div></div><div class="slide-footer"><span class="footer-left"></span><span class="footer-author">黃任遠 Alex Huang | 2026-03-28</span><span class="page-num">13 / 39</span></div></section><section class="slide slide--content" data-notes="停頓一下。「你們猜，我漏掉什麼了？」這是互動點。漏掉的其實很多：折減係數、無開口樓層、防煙區劃、消防法與建築法兩套體系……這些是 AI 幫我補充的。">
+            <h2 class="slide-title">跟AI討論規格-1：從我知道的兩件事開始</h2>
+            <div class="card content-card"><p class="body-text">+ 前言：上次聽 David 聽分享居室採光法規檢討，想到自己之前算很久的排煙窗也可以檢討</p><p class="body-text">+ 我的目標：盡量透過窗戶排煙，而不要設置排煙設備。</p><p class="body-text">但同時盡量不新增窗型，維持立面設計與窗型規格數。</p><p class="body-text">1. 所有樓層需設置排煙設備：</p><p class="body-text"><code>當層樓地板面積≥ 1000m²</code> 且 <code>當層有效開口面積 &gt; 當層樓地板面積1/30</code></p><p class="body-text">2. 單一居室需設置排煙設備：</p><p class="body-text"><code>居室面積&gt; 50m²</code>且 <code>天花板下80cm有效通風面積 &lt; 該居室面積2%</code></p></div><div class="slide-footer"><span class="footer-left"></span><span class="footer-author">黃任遠 Alex Huang | 2026-03-28</span><span class="page-num">14 / 39</span></div></section><section class="slide slide--content" data-notes="「這正是建築師跟 AI 合作最有價值的地方：我提供領域知識的主幹，AI 幫我補充我沒想到的細節。最後跑出來的流程圖，我能看懂每一條，因為本來就是我自己知識的延伸。」">
+            <h2 class="slide-title">跟AI討論規格-2：AI 幫我補齊的部分</h2>
+            <div class="card content-card"><p class="body-text">1. 更上層的事情：特定用途場所，該用途 <code>總樓地板面積≥ 500m²</code>  就需要設置排煙設備</p><p class="body-text">2. 若空間更大：防煙區劃<span class="aside-text">（每 500 m² 一個區）</span>，依區劃檢討</p><p class="body-text">3. 窗戶開啟方式的折減<span class="aside-text">（固定窗 = 0；開啟角度&lt;45度需要折減）</span></p></div><div class="slide-footer"><span class="footer-left"></span><span class="footer-author">黃任遠 Alex Huang | 2026-03-28</span><span class="page-num">15 / 39</span></div></section><section class="slide slide--content">
+            <h2 class="slide-title">跟AI討論規格-3：我希望輸出給技師的部分</h2>
+            <div class="card content-card"><p class="body-text">1. 溝通用圖說：標出天花下 80cm 的範圍線，並標註出有效範圍內的開口長寬</p><p class="body-text">2. Excel 列出各房間與窗的對應明細</p></div><div class="slide-footer"><span class="footer-left"></span><span class="footer-author">黃任遠 Alex Huang | 2026-03-28</span><span class="page-num">16 / 39</span></div></section><section class="slide slide--content">
+            <h2 class="slide-title">跟AI討論規格-4：整理出完整流程</h2>
+            <div class="card content-card"><ul class="bullet-list"><li>自動讀取每個房間的窗戶、天花板高度</li><li>計算有效帶<span class="aside-text">（天花板下 80 cm）</span>內的可開啟面積</li><li>對照 2% 門檻判定合規</li><li>在 Revit 裡直接建立新的剖面視圖</li><li>畫出天花線、有效帶範圍、標上尺寸數字</li></ul></div><div class="slide-footer"><span class="footer-left"></span><span class="footer-author">黃任遠 Alex Huang | 2026-03-28</span><span class="page-num">17 / 39</span></div></section><section class="slide slide--image">
+        <h2 class="slide-title">跟AI討論規格-4-1：流程圖</h2>
+        <div class="image-full"><div class="image-gallery"><figure class="gallery-item"><img src="image/排煙窗邏輯判定圖-1.png" alt="排煙窗邏輯判定圖-1" class="slide-img gallery-img"><figcaption class="gallery-caption">排煙窗邏輯判定圖-1</figcaption></figure><figure class="gallery-item"><img src="image/排煙窗邏輯判定圖-2.png" alt="排煙窗邏輯判定圖-2" class="slide-img gallery-img"><figcaption class="gallery-caption">排煙窗邏輯判定圖-2</figcaption></figure><figure class="gallery-item"><img src="image/排煙窗邏輯判定圖-3.png" alt="排煙窗邏輯判定圖-3" class="slide-img gallery-img"><figcaption class="gallery-caption">排煙窗邏輯判定圖-3</figcaption></figure></div></div><div class="slide-footer"><span class="footer-left"></span><span class="footer-author">黃任遠 Alex Huang | 2026-03-28</span><span class="page-num">18 / 39</span></div></section><section class="slide slide--content" data-notes="「為什麼不讓 AI 直接幫你新增窗型？因為那是設計決策。也許你要換窗型，也許要改天花高度，也許要做機械排煙。這個判斷必須是建築師來做。AI 給你數字，你做決定。」">
+            <h2 class="slide-title">跟AI討論規格-5：輸出 Excel 的詳細內容</h2>
+            <div class="card content-card"><ul class="bullet-list"><li>5 個工作表：樓層總覽 / 房間明細 / 窗戶明細 / 改善建議 / 補充法規</li><li>判定結果標色<span class="aside-text">（PASS 綠 / WARNING 橘 / MANUAL 藍）</span></li><li>直接交給消防技師，不需要再整理</li><li>AI 建議「現有的窗型還需要補幾個」</li><li>不自動新增窗型，只給建議</li></ul></div><div class="slide-footer"><span class="footer-left"></span><span class="footer-author">黃任遠 Alex Huang | 2026-03-28</span><span class="page-num">19 / 39</span></div></section><section class="slide slide--content">
+            <h2 class="slide-title">請AI依規格寫程式</h2>
+            <div class="card content-card"><ul class="bullet-list"><li>先確認目前專案已有的Tools，哪些可以重複利用？哪些這次要新開發出來？</li></ul></div><div class="slide-footer"><span class="footer-left"></span><span class="footer-author">黃任遠 Alex Huang | 2026-03-28</span><span class="page-num">20 / 39</span></div></section><section class="slide slide--content">
+            <h2 class="slide-title">請AI依規格寫程式<span class="aside-text">（續）</span></h2>
+            <div class="card content-card"><p class="body-text">可重複利用的 tools</p></div><div class="card table-card"><table class="card-table"><thead><tr><th>工具名稱</th><th>功能說明</th><th>相關 Domain</th></tr></thead><tbody><tr><td>create_detail_lines</td><td>在視圖中繪製詳圖線<span class="aside-text">（如天花線、有效帶界線）</span></td><td>是 (共用於 stair-hidden-line-workflow.md)</td></tr><tr><td>create_dimension</td><td>建立尺寸標註<span class="aside-text">（標註窗寬、窗高、有效高度）</span></td><td>是 (廣泛共用於 corridor-analysis-protocol.md, auto-dimension-workflow.md 等)</td></tr></tbody></table></div><div class="slide-footer"><span class="footer-left"></span><span class="footer-author">黃任遠 Alex Huang | 2026-03-28</span><span class="page-num">21 / 39</span></div></section><section class="slide slide--content">
+            <h2 class="slide-title">請AI依規格寫程式</h2>
+            <div class="card content-card"><p class="body-text">+ 這次要新開發出來的 tools</p></div><div class="card table-card"><table class="card-table"><thead><tr><th>工具名稱</th><th>功能說明</th><th>相關 Domain</th></tr></thead><tbody><tr><td>check_smoke_exhaust_windows</td><td>排煙窗有效面積檢核與無窗居室判定</td><td>-</td></tr><tr><td>check_floor_effective_openings</td><td>依消防法規判定是否為無開口樓層</td><td>-</td></tr><tr><td>export_smoke_review_excel</td><td>匯出排煙檢討專用的 Excel 報告</td><td>-</td></tr></tbody></table></div><div class="slide-footer"><span class="footer-left"></span><span class="footer-author">黃任遠 Alex Huang | 2026-03-28</span><span class="page-num">22 / 39</span></div></section><section class="slide slide--content">
+            <h2 class="slide-title">請AI依規格寫程式<span class="aside-text">（續）</span></h2>
+            <div class="card content-card"><p class="body-text">+ 這次要新開發出來的 tools（續）</p></div><div class="card table-card"><table class="card-table"><thead><tr><th>工具名稱</th><th>功能說明</th><th>相關 Domain</th></tr></thead><tbody><tr><td>create_section_view</td><td>建立面向外牆的剖面視圖以供檢討</td><td>-</td></tr><tr><td>create_filled_region</td><td>建立填充區域<span class="aside-text">（用於視覺化有效排煙範圍）</span></td><td>-</td></tr><tr><td>create_text_note</td><td>建立文字標註<span class="aside-text">（用於統計摘要顯示）</span></td><td>-</td></tr></tbody></table></div><div class="slide-footer"><span class="footer-left"></span><span class="footer-author">黃任遠 Alex Huang | 2026-03-28</span><span class="page-num">23 / 39</span></div></section><section class="slide slide--image">
+        <h2 class="slide-title">排煙窗法規檢討Excel輸出成果</h2>
+        <div class="image-full"><div class="image-gallery"><figure class="gallery-item"><img src="image/排煙excel_房間明細.png" alt="排煙excel_房間明細" class="slide-img gallery-img"><figcaption class="gallery-caption">排煙excel_房間明細</figcaption></figure><figure class="gallery-item"><img src="image/排煙excel_窗戶明細.png" alt="排煙excel_窗戶明細" class="slide-img gallery-img"><figcaption class="gallery-caption">排煙excel_窗戶明細</figcaption></figure></div></div><div class="slide-footer"><span class="footer-left"></span><span class="footer-author">黃任遠 Alex Huang | 2026-03-28</span><span class="page-num">24 / 39</span></div></section><section class="slide slide--content">
+            <h2 class="slide-title">待改善項目</h2>
+            <div class="card content-card"><p class="body-text">+ 立面圖天花標示尚不穩定，需繼續調整</p></div><div class="slide-footer"><span class="footer-left"></span><span class="footer-author">黃任遠 Alex Huang | 2026-03-28</span><span class="page-num">25 / 39</span></div></section><section class="slide slide--section">
+        <div class="section-with-flow">
+            <div class="section-content">
+                <div class="section-accent-line"></div>
+                <h1 class="section-title">Part 4</h1>
+                
+            </div>
+            <div class="chapter-flow-compact"><svg viewBox="0 0 2600 700" xmlns="http://www.w3.org/2000/svg" style="width:100%;">
+<line x1="532" y1="350" x2="553" y2="350" stroke="var(--muted,#555)" stroke-width="2"/>
+<polygon points="562,350 552,345 552,355" fill="var(--muted,#555)"/>
+<line x1="1034" y1="350" x2="1055" y2="350" stroke="var(--muted,#555)" stroke-width="2"/>
+<polygon points="1064,350 1054,345 1054,355" fill="var(--muted,#555)"/>
+<line x1="1536" y1="350" x2="1557" y2="350" stroke="var(--muted,#555)" stroke-width="2"/>
+<polygon points="1566,350 1556,345 1556,355" fill="var(--muted,#555)"/>
+<line x1="2038" y1="350" x2="2059" y2="350" stroke="var(--muted,#555)" stroke-width="2"/>
+<polygon points="2068,350 2058,345 2058,355" fill="var(--muted,#555)"/>
+<defs><clipPath id="clip_sec_0"><rect x="60.0" y="140.0" width="472" height="420" rx="10"/></clipPath></defs>
+<rect x="60.0" y="140.0" width="472" height="420" rx="10" fill="var(--bg-card,#1a1a1a)" stroke="var(--border,#333)" stroke-width="1.5" opacity="0.38"/>
+<text x="296.0" y="257.6" text-anchor="middle" font-family="var(--font,sans-serif)" font-size="28" fill="var(--muted,#666)" opacity="0.38" clip-path="url(#clip_sec_0)">Part 1</text>
+<text x="296.0" y="413.0" text-anchor="middle" font-family="var(--font,sans-serif)" font-size="58" font-weight="700" fill="var(--muted,#666)" opacity="0.38" clip-path="url(#clip_sec_0)">問題闡述</text>
+<defs><clipPath id="clip_sec_1"><rect x="562.0" y="140.0" width="472" height="420" rx="10"/></clipPath></defs>
+<rect x="562.0" y="140.0" width="472" height="420" rx="10" fill="var(--bg-card,#1a1a1a)" stroke="var(--border,#333)" stroke-width="1.5" opacity="0.38"/>
+<text x="798.0" y="257.6" text-anchor="middle" font-family="var(--font,sans-serif)" font-size="28" fill="var(--muted,#666)" opacity="0.38" clip-path="url(#clip_sec_1)">Part 2</text>
+<text x="798.0" y="413.0" text-anchor="middle" font-family="var(--font,sans-serif)" font-size="58" font-weight="700" fill="var(--muted,#666)" opacity="0.38" clip-path="url(#clip_sec_1)">解方</text>
+<defs><clipPath id="clip_sec_2"><rect x="1064.0" y="140.0" width="472" height="420" rx="10"/></clipPath></defs>
+<rect x="1064.0" y="140.0" width="472" height="420" rx="10" fill="var(--bg-card,#1a1a1a)" stroke="var(--border,#333)" stroke-width="1.5" opacity="0.38"/>
+<text x="1300.0" y="257.6" text-anchor="middle" font-family="var(--font,sans-serif)" font-size="28" fill="var(--muted,#666)" opacity="0.38" clip-path="url(#clip_sec_2)">Part 3</text>
+<text x="1300.0" y="358.4" text-anchor="middle" font-family="var(--font,sans-serif)" font-size="58" font-weight="700" fill="var(--muted,#666)" opacity="0.38" clip-path="url(#clip_sec_2)"><tspan x="1300.0">Domain 案例一</tspan><tspan x="1300.0" dy="69">排煙窗法規檢討</tspan></text>
+<polygon points="1802,124 1794,137 1810,137" fill="var(--accent,#D4A853)"/>
+<defs><clipPath id="clip_sec_3"><rect x="1566.0" y="140.0" width="472" height="420" rx="10"/></clipPath></defs>
+<rect x="1566.0" y="140.0" width="472" height="420" rx="10" fill="var(--accent,#D4A853)" stroke="var(--accent,#D4A853)" stroke-width="3" opacity="1"/>
+<text x="1802.0" y="257.6" text-anchor="middle" font-family="var(--font,sans-serif)" font-size="28" fill="#ffffff" opacity="1" clip-path="url(#clip_sec_3)">Part 4</text>
+<text x="1802.0" y="358.4" text-anchor="middle" font-family="var(--font,sans-serif)" font-size="58" font-weight="700" fill="#ffffff" opacity="1" clip-path="url(#clip_sec_3)"><tspan x="1802.0">Domain 案例二</tspan><tspan x="1802.0" dy="69">帷幕牆面板排列</tspan></text>
+<defs><clipPath id="clip_sec_4"><rect x="2068.0" y="140.0" width="472" height="420" rx="10"/></clipPath></defs>
+<rect x="2068.0" y="140.0" width="472" height="420" rx="10" fill="var(--bg-card,#1a1a1a)" stroke="var(--border,#333)" stroke-width="1.5" opacity="0.38"/>
+<text x="2304.0" y="257.6" text-anchor="middle" font-family="var(--font,sans-serif)" font-size="28" fill="var(--muted,#666)" opacity="0.38" clip-path="url(#clip_sec_4)">Part 5</text>
+<text x="2304.0" y="413.0" text-anchor="middle" font-family="var(--font,sans-serif)" font-size="58" font-weight="700" fill="var(--muted,#666)" opacity="0.38" clip-path="url(#clip_sec_4)">結尾</text>
+</svg></div>
+        </div></section><section class="slide slide--image">
+        <h2 class="slide-title">帷幕牆面板排列成果</h2>
+        <div class="image-full"><div class="image-gallery"><figure class="gallery-item"><img src="image/取得既有帷幕資訊.jpg" alt="取得既有帷幕資訊" class="slide-img gallery-img"><figcaption class="gallery-caption">取得既有帷幕資訊</figcaption></figure><figure class="gallery-item"><img src="image/帷幕網頁預覽面2.jpg" alt="帷幕網頁預覽面2" class="slide-img gallery-img"><figcaption class="gallery-caption">帷幕網頁預覽面2</figcaption></figure><figure class="gallery-item"><img src="image/帷幕網頁預覽面.jpg" alt="帷幕網頁預覽面" class="slide-img gallery-img"><figcaption class="gallery-caption">帷幕網頁預覽面</figcaption></figure><figure class="gallery-item"><img src="image/套用帷幕到Revit.jpg" alt="套用帷幕到Revit" class="slide-img gallery-img"><figcaption class="gallery-caption">套用帷幕到Revit</figcaption></figure></div></div><div class="slide-footer"><span class="footer-left"></span><span class="footer-author">黃任遠 Alex Huang | 2026-03-28</span><span class="page-num">27 / 39</span></div></section><section class="slide slide--content">
+            <h2 class="slide-title">舊做法：用很多工具拼湊</h2>
+            <div class="card content-card"><ul class="bullet-list"><li>Step 1：在 Google AI Studio 設計面板排列方式</li><li>Step 2：鋪面：匯出.dxf，link到 Revit 重繪</li><li>Step 3：帷幕面板：匯出圖檔，用眼睛看著，在 Revit 一格一格改 Type</li><li>每換一個方案，就重複一次......</li></ul></div><div class="slide-footer"><span class="footer-left"></span><span class="footer-author">黃任遠 Alex Huang | 2026-03-28</span><span class="page-num">28 / 39</span></div></section><section class="slide slide--content">
+            <h2 class="slide-title">舊做法：用很多工具拼湊<span class="aside-text">（續）</span></h2>
+            <div class="card code-card"><pre><code>Gemini Canvas 做的工具
+- 建築立面設計
+<a href="https://gemini.google.com/share/993314c3bdb4" target="_blank" rel="noopener" class="code-link">https://gemini.google.com/share/993314c3bdb4</a>
+- 對縫鋪面產生器
+<a href="https://gemini.google.com/share/a7f8fb9dbb09" target="_blank" rel="noopener" class="code-link">https://gemini.google.com/share/a7f8fb9dbb09</a>
+
+Google AI Studio 做的工具
+- 建築平面案例分析工具
+<a href="https://aistudio.google.com/apps/drive/1xl7FRgUViwfUmtku_yTlBoonVJrq8Zkn?fullscreenApplet=true" target="_blank" rel="noopener" class="code-link">https://aistudio.google.com/apps/drive/1xl7FRgUViwfUmtku_yTlBoonVJrq8Zkn?fullscreenApplet=true</a></code></pre></div><div class="slide-footer"><span class="footer-left"></span><span class="footer-author">黃任遠 Alex Huang | 2026-03-28</span><span class="page-num">29 / 39</span></div></section><section class="slide slide--image">
+        <h2 class="slide-title">舊做法: 以前寫的小工具</h2>
+        <div class="image-full"><div class="image-gallery"><figure class="gallery-item"><img src="image/建築立面設計.png" alt="建築立面設計" class="slide-img gallery-img"><figcaption class="gallery-caption">建築立面設計</figcaption></figure><figure class="gallery-item"><img src="image/對縫鋪面排列.png" alt="對縫鋪面排列" class="slide-img gallery-img"><figcaption class="gallery-caption">對縫鋪面排列</figcaption></figure><figure class="gallery-item"><img src="image/平面案例分析工具.jpg" alt="平面案例分析工具" class="slide-img gallery-img"><figcaption class="gallery-caption">平面案例分析工具</figcaption></figure></div></div><div class="slide-footer"><span class="footer-left"></span><span class="footer-author">黃任遠 Alex Huang | 2026-03-28</span><span class="page-num">30 / 39</span></div></section><section class="slide slide--image">
+        <h2 class="slide-title">舊做法: 以前寫的小工具 - 影片</h2>
+        <div class="image-full"><video class="slide-img slide-video" controls playsinline preload="metadata"><source src="image/建築立面設計_影片.mp4"></video></div><div class="slide-footer"><span class="footer-left"></span><span class="footer-author">黃任遠 Alex Huang | 2026-03-28</span><span class="page-num">31 / 39</span></div></section><section class="slide slide--content">
+            <h2 class="slide-title">嘗試改進：用手打編號，以MCP寫入Revit</h2>
+            <div class="card content-card"><ul class="bullet-list"><li>一開始的想法：用文字編號的方式貼給AI，再請他排列<span class="aside-text">（例如：121212／ABBABBA／ABCD、BCDA、CDAB、DABC⋯）</span></li><li>和AI討論後：發現手打編號不直覺，沒有即時視覺反饋，建議新增一個<strong>網頁預覽介面</strong>來溝通<ul><li><strong>網頁預覽介面</strong>：通訊用 HTTP / REST API 來讀寫，只需在「開始」「結束」時傳大批資料<span class="aside-text">（像「公文往返」）</span></li><li><strong>MCP Server 與 Revit</strong>：通訊用 WebSocket，適合即時頻繁操作<span class="aside-text">（像「電話直通」）</span></li></ul></li></ul></div><div class="slide-footer"><span class="footer-left"></span><span class="footer-author">黃任遠 Alex Huang | 2026-03-28</span><span class="page-num">32 / 39</span></div></section><section class="slide slide--content">
+            <h2 class="slide-title">新做法：設計完直接套用</h2>
+            <div class="card code-card"><pre><code>選取 Revit 帷幕牆
+       ↓
+自動讀取帷幕網格（幾行幾列、已有的類型）
+       ↓
+在瀏覽器中視覺化設計
+（現有或新類型 / 色彩主題 / 排列模式...）
+       ↓
+確認套用
+       ↓
+Revit 模型自動更新</code></pre></div><div class="slide-footer"><span class="footer-left"></span><span class="footer-author">黃任遠 Alex Huang | 2026-03-28</span><span class="page-num">33 / 39</span></div></section><section class="slide slide--split">
+        <h2 class="slide-title">網頁介面：所見即所得</h2>
+        <div class="split-layout">
+            <div class="card split-text">
+                <ul class="bullet-list"><li>左側控制列：選擇排列模式、自訂色彩主題</li><li>右側預覽列：Grid 結構預覽<span class="aside-text">（與 Revit 等比例）</span></li><li>確認後自動建立所需的面板類型</li></ul>
+            </div>
+            <div class="split-image"><img src="image/帷幕網頁預覽面2.jpg" alt="帷幕網頁預覽面2" class="slide-img"></div>
+        </div><div class="slide-footer"><span class="footer-left"></span><span class="footer-author">黃任遠 Alex Huang | 2026-03-28</span><span class="page-num">34 / 39</span></div></section><section class="slide slide--image">
+        <h2 class="slide-title">帷幕牆面板排列操作影片</h2>
+        <div class="image-full"><video class="slide-img slide-video" controls playsinline preload="metadata"><source src="image/帷幕排列預覽介面.mp4"></video></div><div class="slide-footer"><span class="footer-left"></span><span class="footer-author">黃任遠 Alex Huang | 2026-03-28</span><span class="page-num">35 / 39</span></div></section><section class="slide slide--section">
+        <div class="section-with-flow">
+            <div class="section-content">
+                <div class="section-accent-line"></div>
+                <h1 class="section-title">Part 5</h1>
+                
+            </div>
+            <div class="chapter-flow-compact"><svg viewBox="0 0 2600 700" xmlns="http://www.w3.org/2000/svg" style="width:100%;">
+<line x1="532" y1="350" x2="553" y2="350" stroke="var(--muted,#555)" stroke-width="2"/>
+<polygon points="562,350 552,345 552,355" fill="var(--muted,#555)"/>
+<line x1="1034" y1="350" x2="1055" y2="350" stroke="var(--muted,#555)" stroke-width="2"/>
+<polygon points="1064,350 1054,345 1054,355" fill="var(--muted,#555)"/>
+<line x1="1536" y1="350" x2="1557" y2="350" stroke="var(--muted,#555)" stroke-width="2"/>
+<polygon points="1566,350 1556,345 1556,355" fill="var(--muted,#555)"/>
+<line x1="2038" y1="350" x2="2059" y2="350" stroke="var(--muted,#555)" stroke-width="2"/>
+<polygon points="2068,350 2058,345 2058,355" fill="var(--muted,#555)"/>
+<defs><clipPath id="clip_sec_0"><rect x="60.0" y="140.0" width="472" height="420" rx="10"/></clipPath></defs>
+<rect x="60.0" y="140.0" width="472" height="420" rx="10" fill="var(--bg-card,#1a1a1a)" stroke="var(--border,#333)" stroke-width="1.5" opacity="0.38"/>
+<text x="296.0" y="257.6" text-anchor="middle" font-family="var(--font,sans-serif)" font-size="28" fill="var(--muted,#666)" opacity="0.38" clip-path="url(#clip_sec_0)">Part 1</text>
+<text x="296.0" y="413.0" text-anchor="middle" font-family="var(--font,sans-serif)" font-size="58" font-weight="700" fill="var(--muted,#666)" opacity="0.38" clip-path="url(#clip_sec_0)">問題闡述</text>
+<defs><clipPath id="clip_sec_1"><rect x="562.0" y="140.0" width="472" height="420" rx="10"/></clipPath></defs>
+<rect x="562.0" y="140.0" width="472" height="420" rx="10" fill="var(--bg-card,#1a1a1a)" stroke="var(--border,#333)" stroke-width="1.5" opacity="0.38"/>
+<text x="798.0" y="257.6" text-anchor="middle" font-family="var(--font,sans-serif)" font-size="28" fill="var(--muted,#666)" opacity="0.38" clip-path="url(#clip_sec_1)">Part 2</text>
+<text x="798.0" y="413.0" text-anchor="middle" font-family="var(--font,sans-serif)" font-size="58" font-weight="700" fill="var(--muted,#666)" opacity="0.38" clip-path="url(#clip_sec_1)">解方</text>
+<defs><clipPath id="clip_sec_2"><rect x="1064.0" y="140.0" width="472" height="420" rx="10"/></clipPath></defs>
+<rect x="1064.0" y="140.0" width="472" height="420" rx="10" fill="var(--bg-card,#1a1a1a)" stroke="var(--border,#333)" stroke-width="1.5" opacity="0.38"/>
+<text x="1300.0" y="257.6" text-anchor="middle" font-family="var(--font,sans-serif)" font-size="28" fill="var(--muted,#666)" opacity="0.38" clip-path="url(#clip_sec_2)">Part 3</text>
+<text x="1300.0" y="358.4" text-anchor="middle" font-family="var(--font,sans-serif)" font-size="58" font-weight="700" fill="var(--muted,#666)" opacity="0.38" clip-path="url(#clip_sec_2)"><tspan x="1300.0">Domain 案例一</tspan><tspan x="1300.0" dy="69">排煙窗法規檢討</tspan></text>
+<defs><clipPath id="clip_sec_3"><rect x="1566.0" y="140.0" width="472" height="420" rx="10"/></clipPath></defs>
+<rect x="1566.0" y="140.0" width="472" height="420" rx="10" fill="var(--bg-card,#1a1a1a)" stroke="var(--border,#333)" stroke-width="1.5" opacity="0.38"/>
+<text x="1802.0" y="257.6" text-anchor="middle" font-family="var(--font,sans-serif)" font-size="28" fill="var(--muted,#666)" opacity="0.38" clip-path="url(#clip_sec_3)">Part 4</text>
+<text x="1802.0" y="358.4" text-anchor="middle" font-family="var(--font,sans-serif)" font-size="58" font-weight="700" fill="var(--muted,#666)" opacity="0.38" clip-path="url(#clip_sec_3)"><tspan x="1802.0">Domain 案例二</tspan><tspan x="1802.0" dy="69">帷幕牆面板排列</tspan></text>
+<polygon points="2304,124 2296,137 2312,137" fill="var(--accent,#D4A853)"/>
+<defs><clipPath id="clip_sec_4"><rect x="2068.0" y="140.0" width="472" height="420" rx="10"/></clipPath></defs>
+<rect x="2068.0" y="140.0" width="472" height="420" rx="10" fill="var(--accent,#D4A853)" stroke="var(--accent,#D4A853)" stroke-width="3" opacity="1"/>
+<text x="2304.0" y="257.6" text-anchor="middle" font-family="var(--font,sans-serif)" font-size="28" fill="#ffffff" opacity="1" clip-path="url(#clip_sec_4)">Part 5</text>
+<text x="2304.0" y="413.0" text-anchor="middle" font-family="var(--font,sans-serif)" font-size="58" font-weight="700" fill="#ffffff" opacity="1" clip-path="url(#clip_sec_4)">結尾</text>
+</svg></div>
+        </div></section><section class="slide slide--content" data-notes="最後一行是重點。這些工具節省的是「重複勞動」的時間，設計判斷的權力還是在建築師手上。這是我在開發過程中一直堅持的原則。">
+            <h2 class="slide-title">工作流程的改變</h2>
+            <div class="card table-card"><table class="card-table"><thead><tr><th>工作環節</th><th>以前</th><th>現在</th></tr></thead><tbody><tr><td>帷幕牆方案討論</td><td>手動改 Revit × 方案數</td><td>網頁預覽確認 → 一鍵套用</td></tr><tr><td>排煙法規核對</td><td>對著條文逐間計算</td><td>自動計算 + 視覺化標示</td></tr><tr><td>交給技師的資料</td><td>手動整理 Excel</td><td>自動匯出，含判定色碼</td></tr><tr><td>不足的窗戶</td><td>自己推算</td><td>AI 告訴你差幾個，你決定怎麼補</td></tr><tr><td>設計決策</td><td>重複勞動後，很累的人</td><td>看著AI依SOP做出的成果，有足夠時間、精神做判斷的人</td></tr></tbody></table></div><div class="slide-footer"><span class="footer-left"></span><span class="footer-author">黃任遠 Alex Huang | 2026-03-28</span><span class="page-num">37 / 39</span></div></section><section class="slide slide--content">
+            <h2 class="slide-title">我從這兩個案例學到的事</h2>
+            <div class="card content-card"><ul class="bullet-list"><li>兩個 domain 都是先討論規格，經過多輪對話，確認 md 檔中的內容與流程正確完整後，再一次請 AI 把程式寫完<span class="aside-text">（C#，即 .cs 檔）</span><ul><li>Part 1 帷幕牆面板排列：用 Claude 討論，Gemini Flash 寫程式</li><li>Part 2 排煙窗法規檢討：用 Claude 討論 + 寫程式</li></ul></li></ul></div><div class="slide-footer"><span class="footer-left"></span><span class="footer-author">黃任遠 Alex Huang | 2026-03-28</span><span class="page-num">38 / 39</span></div></section><section class="slide slide--content">
+            <h2 class="slide-title">總結</h2>
+            <div class="card content-card"><ul class="bullet-list"><li>從已知的工作流程出發，讓AI逐步補齊漏洞、跑重複性SOP</li><li>讓AI在關鍵節點提供建議，設計者做決定</li></ul></div><div class="slide-footer"><span class="footer-left"></span><span class="footer-author">黃任遠 Alex Huang | 2026-03-28</span><span class="page-num">39 / 39</span></div></section>
+</div>
+<div class="image-modal">
+    <div class="image-modal-close">&times;</div>
+    <div class="modal-viewport">
+        <img src="" class="modal-img">
+    </div>
+    <div class="zoom-hint">滾輪縮放 · 拖曳平移 · ESC 關閉</div>
+</div>
+<div class="notes-panel">
+    <div class="notes-label">SPEAKER NOTES (N)</div>
+    <div class="notes-content"></div>
+</div>
+<nav class="nav-sidebar"><div class="nav-header">投影片導覽</div><ul class="nav-list"><li class="nav-item" data-slide="0">封面</li><li class="nav-item" data-slide="1">路線圖</li><li class="nav-item nav-section" data-slide="2">問題闡述</li><li class="nav-item" data-slide="3">兩個重複性的工作</li><li class="nav-item" data-slide="4">SD方案階段/ 外牆排列方案</li><li class="nav-item" data-slide="5">DD建照階段/ 排煙窗檢討</li><li class="nav-item" data-slide="6">傳統作法耗費時間</li><li class="nav-item nav-section" data-slide="7">解方</li><li class="nav-item" data-slide="8">AI協作流程</li><li class="nav-item" data-slide="9">層級關係：Skill（技能）、Domains（領域知識）、Tools（工具）</li><li class="nav-item" data-slide="10">Skill-Domains-Tools 三者關係舉例-1</li><li class="nav-item" data-slide="11">Skill-Domains-Tools 三者關係舉例-2</li><li class="nav-item nav-section" data-slide="12">Domain 案例一 排煙窗法規檢討</li><li class="nav-item" data-slide="13">排煙窗法規檢討成果</li><li class="nav-item" data-slide="14">跟AI討論規格-1：從我知道的兩件事開始</li><li class="nav-item" data-slide="15">跟AI討論規格-2：AI 幫我補齊的部分</li><li class="nav-item" data-slide="16">跟AI討論規格-3：我希望輸出給技師的部分</li><li class="nav-item" data-slide="17">跟AI討論規格-4：整理出完整流程</li><li class="nav-item" data-slide="18">跟AI討論規格-4-1：流程圖</li><li class="nav-item" data-slide="19">跟AI討論規格-5：輸出 Excel 的詳細內容</li><li class="nav-item" data-slide="20">請AI依規格寫程式</li><li class="nav-item" data-slide="21">請AI依規格寫程式（續）</li><li class="nav-item" data-slide="22">請AI依規格寫程式</li><li class="nav-item" data-slide="23">排煙窗法規檢討Excel輸出成果</li><li class="nav-item" data-slide="24">待改善項目</li><li class="nav-item nav-section" data-slide="25">Domain 案例二 帷幕牆面板排列</li><li class="nav-item" data-slide="26">帷幕牆面板排列成果</li><li class="nav-item" data-slide="27">舊做法：用很多工具拼湊</li><li class="nav-item" data-slide="28">舊做法：用很多工具拼湊（續）</li><li class="nav-item" data-slide="29">舊做法: 以前寫的小工具</li><li class="nav-item" data-slide="30">舊做法: 以前寫的小工具 - 影片</li><li class="nav-item" data-slide="31">嘗試改進：用手打編號，以MCP寫入Revit</li><li class="nav-item" data-slide="32">新做法：設計完直接套用</li><li class="nav-item" data-slide="33">網頁介面：所見即所得</li><li class="nav-item" data-slide="34">帷幕牆面板排列操作影片</li><li class="nav-item nav-section" data-slide="35">結尾</li><li class="nav-item" data-slide="36">工作流程的改變</li><li class="nav-item" data-slide="37">學到的Lesson</li><li class="nav-item" data-slide="38">三件值得帶走的事</li></ul></nav>
+<button class="nav-toggle" title="導覽列">&#9776;</button>
+<button class="edit-btn" title="編輯模式 (E)">&#9998;</button>
+<div class="edit-toolbar">
+    <button id="btn-insert-img">&#128247; 插入圖片/影片</button>
+    <button id="btn-add-slide">+ 新增頁</button>
+    <button id="btn-del-slide">&#128465; 刪除此頁</button>
+    <button id="btn-edit-notes">&#128221; 備註</button>
+    <button id="btn-save" class="btn-save">&#128190; 儲存</button>
+    <button id="btn-snapshot" class="btn-snapshot">&#128247; 存快照</button>
+</div>
+<input type="file" id="img-file-input" accept="image/*,video/*" style="display:none">
+<div class="snapshot-modal">
+    <div class="notes-edit-box">
+        <h3>儲存快照</h3>
+        <p style="font-size:0.85rem;color:var(--text-secondary);margin-bottom:0.8rem">
+            快照會複製到 <code>snapshots/</code> 資料夾，不影響工作版本。
+        </p>
+        <input id="snapshot-name-input" type="text"
+               placeholder="例如：v01_SD初版、v02_業主審查"
+               style="width:100%;padding:0.5rem 0.8rem;border:1px solid var(--border);
+                      border-radius:0.5rem;background:var(--bg);color:var(--text-primary);
+                      font-family:var(--font);font-size:0.9rem;margin-bottom:1rem">
+        <div class="notes-edit-actions">
+            <button id="snapshot-cancel">取消</button>
+            <button id="snapshot-ok" class="btn-ok">確認儲存</button>
+        </div>
+    </div>
+</div>
+<div class="notes-edit-modal">
+    <div class="notes-edit-box">
+        <h3>編輯講者備註</h3>
+        <textarea placeholder="輸入此頁的講者備註..."></textarea>
+        <div class="notes-edit-actions">
+            <button id="notes-cancel">取消</button>
+            <button id="notes-ok" class="btn-ok">確定</button>
+        </div>
+    </div>
+</div>
+<div class="save-toast"></div>
+<script>
+    // === 主題定義 ===
+    const THEMES = {
+        'minimal-white': {
+            name: '極簡白', dot: '#FFFFFF',
+            bg: '#FFFFFF', 'bg-card': '#F7F7F7', 'bg-card-hover': '#F0F0F0',
+            'text-primary': '#3A3A3A', 'text-secondary': '#666666',
+            accent: '#007ACC', 'accent-light': 'rgba(0,122,204,0.08)',
+            muted: '#999999', border: '#E5E5E5', shadow: 'rgba(0,0,0,0.06)',
+            font: "'Noto Serif TC','Microsoft JhengHei',serif"
+        },
+        'architect-dark': {
+            name: '建築深色', dot: '#1A1A1A',
+            bg: '#0F0F0F', 'bg-card': '#1A1A1A', 'bg-card-hover': '#222222',
+            'text-primary': '#E0E0E0', 'text-secondary': '#AAAAAA',
+            accent: '#D4A853', 'accent-light': 'rgba(212,168,83,0.10)',
+            muted: '#666666', border: '#2A2A2A', shadow: 'rgba(0,0,0,0.3)',
+            font: "'Noto Serif TC','Microsoft JhengHei',serif"
+        },
+        'blueprint': {
+            name: '藍圖', dot: '#1B2A4A',
+            bg: '#1B2A4A', 'bg-card': '#223356', 'bg-card-hover': '#2A3D66',
+            'text-primary': '#E0E8F0', 'text-secondary': '#B0C8E0',
+            accent: '#5DADE2', 'accent-light': 'rgba(93,173,226,0.10)',
+            muted: '#6680A0', border: '#2E4570', shadow: 'rgba(0,0,0,0.3)',
+            font: "'Noto Serif TC','Microsoft JhengHei',serif"
+        },
+        'concrete': {
+            name: '清水模', dot: '#D8D3CE',
+            bg: '#E8E4E1', 'bg-card': '#D8D3CE', 'bg-card-hover': '#CEC8C2',
+            'text-primary': '#444444', 'text-secondary': '#666666',
+            accent: '#8B4513', 'accent-light': 'rgba(139,69,19,0.08)',
+            muted: '#8B8B8B', border: '#C0BAB5', shadow: 'rgba(0,0,0,0.08)',
+            font: "'Noto Serif TC','Microsoft JhengHei',serif"
+        },
+        'nature': {
+            name: '自然', dot: '#27AE60',
+            bg: '#FAFAF5', 'bg-card': '#F0EDE5', 'bg-card-hover': '#E8E4DA',
+            'text-primary': '#3D4446', 'text-secondary': '#555555',
+            accent: '#27AE60', 'accent-light': 'rgba(39,174,96,0.08)',
+            muted: '#95A5A6', border: '#D5D0C8', shadow: 'rgba(0,0,0,0.06)',
+            font: "'Noto Serif TC','Microsoft JhengHei',serif"
+        }
+    };
+
+    // === 主題切換 ===
+    function applyTheme(id) {
+        const t = THEMES[id];
+        if (!t) return;
+        const r = document.documentElement.style;
+        for (const [k, v] of Object.entries(t)) {
+            if (k === 'name' || k === 'dot' || k === 'font') continue;
+            r.setProperty('--' + k, v);
+        }
+        r.setProperty('--font', t.font);
+        // 更新 dot active
+        document.querySelectorAll('.theme-dot').forEach(d => {
+            d.classList.toggle('active', d.dataset.theme === id);
+        });
+        localStorage.setItem('presentation-theme', id);
+    }
+
+    // 初始化主題（localStorage 優先 > frontmatter 預設）
+    const savedTheme = localStorage.getItem('presentation-theme');
+    applyTheme(savedTheme || 'architect-dark');
+
+    // 綁定 dot 點擊（避免冒泡到翻頁）
+    document.querySelectorAll('.theme-dot').forEach(dot => {
+        dot.addEventListener('click', e => {
+            e.stopPropagation();
+            applyTheme(dot.dataset.theme);
+        });
+    });
+    document.querySelector('.theme-switcher').addEventListener('click', e => e.stopPropagation());
+
+    // === 投影片導航 ===
+    const slides = document.querySelectorAll('.slide');
+    const progress = document.querySelector('.progress-bar');
+    const notesPanel = document.querySelector('.notes-panel');
+    const notesContent = document.querySelector('.notes-content');
+    let current = 0;
+    let notesVisible = false;
+
+    function showSlide(n) {
+        if (n < 0 || n >= slides.length) return;
+        slides[current].classList.remove('active');
+        current = n;
+        slides[current].classList.add('active');
+        progress.style.width = ((current + 1) / slides.length * 100) + '%';
+        const notes = slides[current].getAttribute('data-notes');
+        notesContent.textContent = notes || '(no notes)';
+    }
+
+    function next() { showSlide(current + 1); }
+    function prev() { showSlide(current - 1); }
+
+    document.addEventListener('keydown', e => {
+        if (imageModal && imageModal.classList.contains('visible')) return; // lightbox 開啟時不換頁
+        // 影片控制：若當前投影片有 <video>，Space／←→ 優先控制影片
+        const curVideo = slides[current] && slides[current].querySelector('video');
+        if (curVideo) {
+            if (e.key === ' ') {
+                e.preventDefault();
+                curVideo.paused ? curVideo.play() : curVideo.pause();
+                return;
+            }
+            if (e.key === 'ArrowRight') {
+                e.preventDefault();
+                curVideo.currentTime = Math.min(curVideo.duration || Infinity, curVideo.currentTime + 5);
+                return;
+            }
+            if (e.key === 'ArrowLeft') {
+                e.preventDefault();
+                curVideo.currentTime = Math.max(0, curVideo.currentTime - 5);
+                return;
+            }
+        }
+        if (e.key === 'ArrowRight' || e.key === ' ') { e.preventDefault(); next(); }
+        else if (e.key === 'ArrowLeft') { e.preventDefault(); prev(); }
+        else if (e.key === 'n' || e.key === 'N') {
+            notesVisible = !notesVisible;
+            notesPanel.classList.toggle('visible', notesVisible);
+        }
+        else if (e.key === 'f' || e.key === 'F') {
+            if (!document.fullscreenElement) document.documentElement.requestFullscreen();
+            else document.exitFullscreen();
+        }
+    });
+
+    document.addEventListener('click', e => {
+        const x = e.clientX / window.innerWidth;
+        if (x > 0.5) next(); else prev();
+    });
+
+    let touchStartX = 0;
+    document.addEventListener('touchstart', e => { touchStartX = e.touches[0].clientX; });
+    document.addEventListener('touchend', e => {
+        const diff = e.changedTouches[0].clientX - touchStartX;
+        if (Math.abs(diff) > 50) { diff < 0 ? next() : prev(); }
+    });
+
+    // === 導覽列 ===
+    document.querySelector('.nav-toggle').addEventListener('click', e => {
+        e.stopPropagation();
+        document.body.classList.toggle('nav-open');
+    });
+    document.querySelector('.nav-sidebar').addEventListener('click', e => e.stopPropagation());
+
+    // 動態建立導覽列（從 slide 標題讀取，確保與內容永遠同步）
+    function buildNav() {
+        const navList = document.querySelector('.nav-list');
+        navList.innerHTML = '';
+        slides.forEach((slide, idx) => {
+            const li = document.createElement('li');
+            li.className = 'nav-item';
+            if (slide.classList.contains('slide--section')) li.classList.add('nav-section');
+            li.dataset.slide = idx;
+            const titleEl = slide.querySelector('.section-title, .cover-title, .closing-title, .slide-title');
+            li.textContent = titleEl ? titleEl.textContent.trim() : `投影片 ${idx + 1}`;
+            li.addEventListener('click', e => {
+                e.stopPropagation();
+                showSlide(idx);
+                if (window.innerWidth < 1200) document.body.classList.remove('nav-open');
+            });
+            navList.appendChild(li);
+        });
+    }
+
+    function updateNav() {
+        document.querySelectorAll('.nav-item').forEach(item => {
+            item.classList.toggle('active', parseInt(item.dataset.slide) === current);
+        });
+        const activeNav = document.querySelector('.nav-item.active');
+        if (activeNav) activeNav.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+    }
+    buildNav();
+    // 覆蓋 showSlide 加入 nav 更新
+    const _origShowSlide = showSlide;
+    showSlide = function(n) { _origShowSlide(n); updateNav(); };
+    updateNav();
+
+    // 滾輪換頁（加 debounce 避免連續觸發）
+    let wheelLock = false;
+    document.addEventListener('wheel', e => {
+        if (editMode || wheelLock || e.target.closest('.nav-sidebar') || e.target.closest('.notes-panel')) return;
+        if (imageModal && imageModal.classList.contains('visible')) return; // lightbox 開啟時不換頁
+        wheelLock = true;
+        if (e.deltaY > 0) next(); else if (e.deltaY < 0) prev();
+        setTimeout(() => { wheelLock = false; }, 400);
+    }, { passive: true });
+
+    // === 圖片縮放預覽 (Lightbox) ===
+    const imageModal = document.querySelector('.image-modal');
+    const modalImg = document.querySelector('.modal-img');
+    let scale = 1;
+    let posX = 0, posY = 0;
+    let isDraggingImg = false;
+    let startDragX, startDragY;
+    let lightboxSrcs = [];
+    let lightboxIdx = 0;
+
+    function openLightbox(src) {
+        // 收集當前投影片所有靜態圖片（排除 video）
+        const curSlide = slides[current];
+        lightboxSrcs = [...curSlide.querySelectorAll('img.slide-img')]
+            .map(i => i.src).filter(Boolean);
+        lightboxIdx = lightboxSrcs.indexOf(src);
+        if (lightboxIdx < 0) { lightboxSrcs = [src]; lightboxIdx = 0; }
+        modalImg.src = src;
+        scale = 1; posX = 0; posY = 0;
+        updateModalTransform();
+        imageModal.classList.add('visible');
+    }
+
+    function closeLightbox() {
+        imageModal.classList.remove('visible');
+    }
+
+    function lightboxNav(dir) {
+        if (lightboxSrcs.length < 2) return;
+        lightboxIdx = (lightboxIdx + dir + lightboxSrcs.length) % lightboxSrcs.length;
+        modalImg.src = lightboxSrcs[lightboxIdx];
+        scale = 1; posX = 0; posY = 0;
+        updateModalTransform();
+    }
+
+    function updateModalTransform() {
+        modalImg.style.transform = `translate(${posX}px, ${posY}px) scale(${scale})`;
+    }
+
+    // 點擊投影片內的圖片開啟
+    document.addEventListener('click', e => {
+        const img = e.target.closest('.slide-img, .placeholder-img, .floating-img-wrapper img');
+        if (img && !editMode) {
+            if (img.src) openLightbox(img.src);
+        }
+    });
+
+    imageModal.addEventListener('wheel', e => {
+        if (!imageModal.classList.contains('visible')) return;
+        e.preventDefault();
+        e.stopPropagation();
+        const delta = -e.deltaY;
+        const factor = delta > 0 ? 1.1 : 0.9;
+        scale = Math.min(Math.max(0.5, scale * factor), 10);
+        updateModalTransform();
+    }, { passive: false });
+
+    modalImg.addEventListener('mousedown', e => {
+        if (!imageModal.classList.contains('visible')) return;
+        isDraggingImg = true;
+        modalImg.classList.add('dragging');
+        startDragX = e.clientX - posX;
+        startDragY = e.clientY - posY;
+        e.preventDefault();
+    });
+
+    document.addEventListener('mousemove', e => {
+        if (!isDraggingImg) return;
+        posX = e.clientX - startDragX;
+        posY = e.clientY - startDragY;
+        updateModalTransform();
+    });
+
+    document.addEventListener('mouseup', () => {
+        isDraggingImg = false;
+        modalImg.classList.remove('dragging');
+    });
+
+    imageModal.addEventListener('click', e => {
+        if (e.target === imageModal || e.target.closest('.image-modal-close') || e.target.closest('.modal-viewport')) {
+            if (!isDraggingImg && e.target !== modalImg) closeLightbox();
+        }
+    });
+
+    document.addEventListener('keydown', e => {
+        if (!imageModal.classList.contains('visible')) return;
+        if (e.key === 'Escape') { closeLightbox(); return; }
+        if (e.key === 'ArrowRight') { e.preventDefault(); closeLightbox(); next(); }
+        else if (e.key === 'ArrowLeft') { e.preventDefault(); closeLightbox(); prev(); }
+    });
+
+    showSlide(0);
+
+    // === 自動縮小溢出投影片的字體 ===
+    // 用 children offsetHeight 加總判斷溢出，比 scrollHeight 對 flexbox 更可靠
+    function autoFitSlides() {
+        const SKIP = ['slide--section', 'slide--cover', 'slide--toc', 'slide--closing'];
+        document.querySelectorAll('.slide').forEach(slide => {
+            if (SKIP.some(c => slide.classList.contains(c))) return;
+            slide.style.fontSize = '';
+            const footer = slide.querySelector('.slide-footer');
+            const style = getComputedStyle(slide);
+            const padV = parseFloat(style.paddingTop) + parseFloat(style.paddingBottom);
+            const available = slide.clientHeight - padV;
+            function totalH() {
+                let h = 0;
+                for (const el of slide.children) {
+                    if (el === footer) continue;
+                    const cs = getComputedStyle(el);
+                    h += el.offsetHeight + parseFloat(cs.marginTop) + parseFloat(cs.marginBottom);
+                }
+                return h;
+            }
+            if (totalH() <= available) return;
+            for (let scale = 0.88; scale >= 0.45; scale -= 0.04) {
+                slide.style.fontSize = scale + 'em';
+                if (totalH() <= available) break;
+            }
+        });
+    }
+    // 頁面渲染完成後執行（避免 flexbox 尺寸未計算問題）
+    requestAnimationFrame(function() { requestAnimationFrame(autoFitSlides); });
+
+    // === 編輯模式 ===
+    let editMode = false;
+    const EDITABLE_SEL = '.slide-title, .section-title, .cover-title, .closing-title, .cover-subtitle, .bullet-list li, .body-text, .card-table td, .card-table th, .demo-steps li, .closing-points li, .placeholder-text, .quote-text';
+
+    function toggleEdit() {
+        editMode = !editMode;
+        document.body.classList.toggle('edit-mode', editMode);
+        document.querySelector('.edit-toolbar').style.display = editMode ? 'flex' : 'none';
+        document.querySelectorAll(EDITABLE_SEL).forEach(el => { el.contentEditable = editMode; });
+        // 編輯模式時停用點擊換頁
+    }
+
+    document.querySelector('.edit-btn').addEventListener('click', e => { e.stopPropagation(); toggleEdit(); });
+    document.addEventListener('keydown', e => {
+        if (e.key === 'e' || e.key === 'E') {
+            if (!editMode && !e.target.isContentEditable) toggleEdit();
+        }
+    });
+
+    // === 圖片插入與拖曳排版 ===
+    const imgFileInput = document.getElementById('img-file-input');
+    let imgTargetPlaceholder = null;
+
+    function readImgFile(file, cb) {
+        const reader = new FileReader();
+        reader.onload = e => cb(e.target.result, file.name);
+        reader.readAsDataURL(file);
+    }
+
+    function createFloatingImg(src, slideEl, x, y, w, h, relPath) {
+        const wrapper = document.createElement('div');
+        wrapper.className = 'floating-img-wrapper';
+        wrapper.style.left   = Math.round(x) + 'px';
+        wrapper.style.top    = Math.round(y) + 'px';
+        wrapper.style.width  = Math.round(w) + 'px';
+        wrapper.style.height = Math.round(h) + 'px';
+        if (relPath) wrapper.dataset.relPath = relPath;
+
+        const img = document.createElement('img');
+        img.src = src;
+        img.draggable = false;
+        wrapper.appendChild(img);
+
+        ['nw','n','ne','e','se','s','sw','w'].forEach(dir => {
+            const h = document.createElement('div');
+            h.className = 'resize-handle ' + dir;
+            h.dataset.dir = dir;
+            wrapper.appendChild(h);
+        });
+
+        const delBtn = document.createElement('div');
+        delBtn.className = 'img-delete-btn';
+        delBtn.innerHTML = '&times;';
+        delBtn.addEventListener('mousedown', e => { e.stopPropagation(); });
+        delBtn.addEventListener('click', e => { e.stopPropagation(); wrapper.remove(); });
+        wrapper.appendChild(delBtn);
+
+        slideEl.appendChild(wrapper);
+        setupImgDragResize(wrapper);
+        return wrapper;
+    }
+
+    function createFloatingVideo(src, slideEl, x, y, w, h, relPath) {
+        const wrapper = document.createElement('div');
+        wrapper.className = 'floating-img-wrapper';
+        wrapper.dataset.mediaType = 'video';
+        wrapper.style.left   = Math.round(x) + 'px';
+        wrapper.style.top    = Math.round(y) + 'px';
+        wrapper.style.width  = Math.round(w) + 'px';
+        wrapper.style.height = Math.round(h) + 'px';
+        if (relPath) wrapper.dataset.relPath = relPath;
+
+        const vid = document.createElement('video');
+        vid.src = src;
+        vid.controls = true;
+        vid.draggable = false;
+        wrapper.appendChild(vid);
+
+        ['nw','n','ne','e','se','s','sw','w'].forEach(dir => {
+            const h = document.createElement('div');
+            h.className = 'resize-handle ' + dir;
+            h.dataset.dir = dir;
+            wrapper.appendChild(h);
+        });
+        const delBtn = document.createElement('div');
+        delBtn.className = 'img-delete-btn';
+        delBtn.innerHTML = '&times;';
+        delBtn.addEventListener('mousedown', e => { e.stopPropagation(); });
+        delBtn.addEventListener('click', e => { e.stopPropagation(); wrapper.remove(); });
+        wrapper.appendChild(delBtn);
+
+        slideEl.appendChild(wrapper);
+        setupImgDragResize(wrapper);
+        return wrapper;
+    }
+
+    function setupImgDragResize(wrapper) {
+        let isDragging = false, isResizing = false;
+        let startX, startY, startL, startT, startW, startH, resizeDir;
+
+        wrapper.addEventListener('mousedown', e => {
+            if (e.target.classList.contains('img-delete-btn')) return;
+            e.stopPropagation();
+            document.querySelectorAll('.floating-img-wrapper.selected')
+                .forEach(el => el.classList.remove('selected'));
+            wrapper.classList.add('selected');
+
+            if (e.target.classList.contains('resize-handle')) {
+                isResizing = true;
+                resizeDir = e.target.dataset.dir;
+            } else {
+                isDragging = true;
+            }
+            startX = e.clientX; startY = e.clientY;
+            startL = parseFloat(wrapper.style.left)  || 0;
+            startT = parseFloat(wrapper.style.top)   || 0;
+            startW = wrapper.offsetWidth;
+            startH = wrapper.offsetHeight;
+
+            const onMove = e => {
+                const dx = e.clientX - startX, dy = e.clientY - startY;
+                if (isDragging) {
+                    wrapper.style.left = (startL + dx) + 'px';
+                    wrapper.style.top  = (startT + dy) + 'px';
+                } else if (isResizing) {
+                    let nL = startL, nT = startT, nW = startW, nH = startH;
+                    if (resizeDir.includes('e')) nW = Math.max(60, startW + dx);
+                    if (resizeDir.includes('s')) nH = Math.max(60, startH + dy);
+                    if (resizeDir.includes('w')) { nW = Math.max(60, startW - dx); nL = startL + startW - nW; }
+                    if (resizeDir.includes('n')) { nH = Math.max(60, startH - dy); nT = startT + startH - nH; }
+                    wrapper.style.left   = Math.round(nL) + 'px';
+                    wrapper.style.top    = Math.round(nT) + 'px';
+                    wrapper.style.width  = Math.round(nW) + 'px';
+                    wrapper.style.height = Math.round(nH) + 'px';
+                }
+            };
+            const onUp = () => {
+                isDragging = false; isResizing = false;
+                document.removeEventListener('mousemove', onMove);
+                document.removeEventListener('mouseup', onUp);
+            };
+            document.addEventListener('mousemove', onMove);
+            document.addEventListener('mouseup', onUp);
+        });
+    }
+
+    // 點擊 placeholder → 上傳取代
+    document.addEventListener('click', e => {
+        if (!editMode) return;
+        const ph = e.target.closest('.placeholder-img');
+        if (!ph) return;
+        e.stopPropagation();
+        imgTargetPlaceholder = ph;
+        imgFileInput.click();
+    }, true);
+
+    // 工具列「插入圖片」按鈕
+    document.getElementById('btn-insert-img').addEventListener('click', e => {
+        e.stopPropagation();
+        imgTargetPlaceholder = null;
+        imgFileInput.click();
+    });
+
+    // 點選空白處取消選取
+    document.addEventListener('click', e => {
+        if (!e.target.closest('.floating-img-wrapper'))
+            document.querySelectorAll('.floating-img-wrapper.selected')
+                .forEach(el => el.classList.remove('selected'));
+    });
+
+    // 處理選取的檔案
+    imgFileInput.addEventListener('change', e => {
+        const file = e.target.files[0];
+        if (!file) { return; }
+        const isVideo = file.type.startsWith('video/');
+        const slideEl = slides[current];
+
+        if (isVideo) {
+            // 影片：用 binary 上傳，不做 base64
+            fetch('/api/save-video', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/octet-stream',
+                    'X-Filename': encodeURIComponent(file.name),
+                    'Content-Length': file.size,
+                },
+                body: file,
+            })
+            .then(r => r.ok ? r.json() : Promise.reject(r))
+            .then(data => {
+                if (data.ok) {
+                    _placeVideo(data.path, data.path, slideEl);
+                } else {
+                    alert('影片上傳失敗：' + (data.error || '未知錯誤'));
+                }
+            })
+            .catch(() => alert('影片需要伺服器模式才能上傳。\n請先用 presentation_server.py 啟動。'));
+        } else {
+            readImgFile(file, (dataUrl, filename) => {
+                fetch('/api/save-image', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({base64: dataUrl, filename: filename})
+                })
+                .then(r => r.ok ? r.json() : Promise.reject())
+                .then(data => {
+                    if (data.ok) { _placeImg(data.path, data.path, slideEl); }
+                    else { _placeImg(dataUrl, null, slideEl); }
+                })
+                .catch(() => _placeImg(dataUrl, null, slideEl));
+            });
+        }
+        imgFileInput.value = '';
+    });
+
+    function _placeImg(src, relPath, slideEl) {
+        if (imgTargetPlaceholder) {
+            const rect = imgTargetPlaceholder.getBoundingClientRect();
+            const sr   = slideEl.getBoundingClientRect();
+            createFloatingImg(src, slideEl,
+                rect.left - sr.left, rect.top - sr.top,
+                rect.width, rect.height, relPath);
+            imgTargetPlaceholder.style.display = 'none';
+            imgTargetPlaceholder = null;
+        } else {
+            const sw = slideEl.offsetWidth, sh = slideEl.offsetHeight;
+            createFloatingImg(src, slideEl, sw/2 - 150, sh/2 - 100, 300, 200, relPath);
+        }
+    }
+
+    function _placeVideo(src, relPath, slideEl) {
+        const sw = slideEl.offsetWidth, sh = slideEl.offsetHeight;
+        createFloatingVideo(src, slideEl, sw/2 - 200, sh/2 - 130, 400, 260, relPath);
+    }
+
+    // 編輯模式下攔截點擊換頁
+    const origClick = document.onclick;
+    document.addEventListener('click', e => {
+        if (editMode && !e.target.closest('.edit-toolbar') && !e.target.closest('.edit-btn') && !e.target.closest('.theme-switcher') && !e.target.closest('.notes-edit-modal')) {
+            e.stopImmediatePropagation();
+        }
+    }, true);
+
+    // 新增頁面
+    document.getElementById('btn-add-slide').addEventListener('click', e => {
+        e.stopPropagation();
+        const tpl = document.createElement('section');
+        tpl.className = 'slide slide--content';
+        tpl.setAttribute('data-notes', '');
+        tpl.innerHTML = '<h2 class="slide-title" contenteditable="true">新投影片標題</h2><div class="card content-card"><ul class="bullet-list"><li contenteditable="true">內容</li></ul></div><div class="page-num"></div>';
+        const deck = document.querySelector('.deck');
+        const ref = slides[current];
+        ref.after(tpl);
+        // 重新整理 slides NodeList — 要重新查詢
+        location.reload();
+    });
+
+    // 刪除當前頁
+    document.getElementById('btn-del-slide').addEventListener('click', e => {
+        e.stopPropagation();
+        if (slides.length <= 1) return;
+        if (!confirm('確定刪除此頁？')) return;
+        slides[current].remove();
+        location.reload();
+    });
+
+    // 編輯備註
+    document.getElementById('btn-edit-notes').addEventListener('click', e => {
+        e.stopPropagation();
+        const modal = document.querySelector('.notes-edit-modal');
+        const ta = modal.querySelector('textarea');
+        ta.value = slides[current].getAttribute('data-notes') || '';
+        modal.classList.add('visible');
+    });
+    document.getElementById('notes-cancel').addEventListener('click', e => {
+        document.querySelector('.notes-edit-modal').classList.remove('visible');
+    });
+    document.getElementById('notes-ok').addEventListener('click', e => {
+        const ta = document.querySelector('.notes-edit-modal textarea');
+        slides[current].setAttribute('data-notes', ta.value);
+        notesContent.textContent = ta.value;
+        document.querySelector('.notes-edit-modal').classList.remove('visible');
+    });
+
+    // === 儲存（HTML → MD → POST） ===
+    document.getElementById('btn-save').addEventListener('click', e => {
+        e.stopPropagation();
+        const md = extractMarkdown();
+        fetch('/api/save', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({markdown: md})
+        })
+        .then(r => r.json())
+        .then(data => {
+            const toast = document.querySelector('.save-toast');
+            toast.textContent = data.ok ? '✓ 已儲存並更新 MD' : '✕ 儲存失敗';
+            toast.classList.add('show');
+            setTimeout(() => toast.classList.remove('show'), 2500);
+            if (data.ok && data.reload) {
+                setTimeout(() => location.reload(), 800);
+            }
+        })
+        .catch(() => {
+            const toast = document.querySelector('.save-toast');
+            toast.textContent = '✕ 無法連線伺服器（請先啟動 presentation_server.py）';
+            toast.classList.add('show');
+            setTimeout(() => toast.classList.remove('show'), 3500);
+        });
+    });
+
+    // === 快照功能 ===
+    const snapshotModal = document.querySelector('.snapshot-modal');
+    const snapshotInput = document.getElementById('snapshot-name-input');
+
+    document.getElementById('btn-snapshot').addEventListener('click', e => {
+        e.stopPropagation();
+        snapshotInput.value = '';
+        snapshotModal.classList.add('visible');
+        setTimeout(() => snapshotInput.focus(), 50);
+    });
+    document.getElementById('snapshot-cancel').addEventListener('click', e => {
+        snapshotModal.classList.remove('visible');
+    });
+    snapshotInput.addEventListener('keydown', e => {
+        if (e.key === 'Enter') document.getElementById('snapshot-ok').click();
+        if (e.key === 'Escape') snapshotModal.classList.remove('visible');
+    });
+    document.getElementById('snapshot-ok').addEventListener('click', e => {
+        const name = snapshotInput.value.trim();
+        if (!name) { snapshotInput.focus(); return; }
+        snapshotModal.classList.remove('visible');
+        fetch('/api/snapshot', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({name: name})
+        })
+        .then(r => r.json())
+        .then(data => {
+            const toast = document.querySelector('.save-toast');
+            toast.textContent = data.ok
+                ? '✓ 快照已儲存：snapshots/' + name
+                : '✕ 快照失敗：' + (data.error || '');
+            toast.classList.add('show');
+            setTimeout(() => toast.classList.remove('show'), 3000);
+        })
+        .catch(() => {
+            const toast = document.querySelector('.save-toast');
+            toast.textContent = '✕ 需要啟動 presentation_server.py 才能儲存快照';
+            toast.classList.add('show');
+            setTimeout(() => toast.classList.remove('show'), 3500);
+        });
+    });
+
+    function extractMarkdown() {
+        const allSlides = document.querySelectorAll('.slide');
+        let md = document.body.getAttribute('data-frontmatter') || '';
+        md += '\n\n';
+
+        allSlides.forEach((slide, i) => {
+            if (i === 0) return; // cover handled by frontmatter
+            const cls = slide.className;
+            const notes = slide.getAttribute('data-notes') || '';
+
+            if (cls.includes('slide--section')) {
+                const t = slide.querySelector('.section-title');
+                md += '# ' + (t ? t.textContent.trim() : '') + '\n\n';
+            } else if (cls.includes('slide--closing')) {
+                md += '<!-- type: closing -->\n';
+                const t = slide.querySelector('.closing-title');
+                md += '## ' + (t ? t.textContent.trim() : '') + '\n\n';
+                slide.querySelectorAll('.closing-points li').forEach(li => {
+                    md += '- ' + li.textContent.trim() + '\n';
+                });
+            } else if (cls.includes('slide--diagram')) {
+                const t = slide.querySelector('.slide-title');
+                md += '## ' + (t ? t.textContent.trim() : '') + '\n\n';
+                const svg = slide.querySelector('svg');
+                // 保留 diagram 標記（無法從 SVG 反推，所以用 data 屬性）
+                const diagramId = slide.getAttribute('data-diagram') || '';
+                if (diagramId) md += '<!-- diagram: ' + diagramId + ' -->\n\n';
+            } else {
+                const t = slide.querySelector('.slide-title');
+                if (cls.includes('slide--comparison')) md += '<!-- type: comparison -->\n';
+                if (cls.includes('slide--demo')) md += '<!-- type: demo -->\n';
+                md += '## ' + (t ? t.textContent.trim() : '') + '\n\n';
+
+                // bullets
+                slide.querySelectorAll('.bullet-list > li').forEach(li => {
+                    const sub = li.querySelector('ul');
+                    const mainText = sub ? li.childNodes[0].textContent.trim() : li.textContent.trim();
+                    md += '- ' + mainText + '\n';
+                    if (sub) {
+                        sub.querySelectorAll('li').forEach(s => {
+                            md += '  - ' + s.textContent.trim() + '\n';
+                        });
+                    }
+                });
+
+                // code blocks
+                slide.querySelectorAll('pre code').forEach(code => {
+                    md += '\n```\n' + code.textContent + '\n```\n';
+                });
+
+                // tables
+                slide.querySelectorAll('.card-table').forEach(table => {
+                    const ths = [...table.querySelectorAll('th')].map(th => th.textContent.trim());
+                    md += '\n| ' + ths.join(' | ') + ' |\n';
+                    md += '|' + ths.map(() => '------').join('|') + '|\n';
+                    table.querySelectorAll('tbody tr').forEach(tr => {
+                        const tds = [...tr.querySelectorAll('td')].map(td => td.textContent.trim());
+                        md += '| ' + tds.join(' | ') + ' |\n';
+                    });
+                });
+
+                // placeholders（未被取代的）
+                slide.querySelectorAll('.placeholder-img').forEach(ph => {
+                    if (ph.style.display === 'none') return;
+                    const pt = ph.querySelector('.placeholder-text');
+                    const desc = pt ? pt.textContent.replace(/^請插入[：:]\s*/, '') : '';
+                    md += '\n![placeholder: ' + desc + ']()\n';
+                });
+
+                // 浮動圖片 / 影片（序列化位置與路徑）
+                slide.querySelectorAll('.floating-img-wrapper').forEach(fw => {
+                    const img = fw.querySelector('img');
+                    const vid = fw.querySelector('video');
+                    const media = img || vid;
+                    if (!media) return;
+                    const x = Math.round(parseFloat(fw.style.left)  || 0);
+                    const y = Math.round(parseFloat(fw.style.top)   || 0);
+                    const w = Math.round(fw.offsetWidth);
+                    const h = Math.round(fw.offsetHeight);
+                    const relPath = fw.dataset.relPath || '';
+                    const src = relPath || media.src;
+                    if (vid) {
+                        md += '\n<!-- float-video: {"x":' + x + ',"y":' + y + ',"w":' + w + ',"h":' + h + '} -->\n';
+                        md += '![影片](' + src + ')\n';
+                    } else {
+                        md += '\n<!-- float-img: {"x":' + x + ',"y":' + y + ',"w":' + w + ',"h":' + h + '} -->\n';
+                        md += '![圖片](' + src + ')\n';
+                    }
+                });
+            }
+
+            if (notes) md += '\n> 講者備註：' + notes + '\n';
+            md += '\n---\n\n';
+        });
+        return md;
+    }
+    </script>
+</body>
+</html>
