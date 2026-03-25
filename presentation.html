@@ -147,6 +147,54 @@
         min-height: 0;
     }
 
+    /* === 多卡片佈局 === */
+    .multi-card-layout {
+        display: flex;
+        flex-direction: column;
+        flex: 1;
+        min-height: 0;
+        gap: 0.8rem;
+    }
+    .columns-row {
+        display: flex;
+        flex-direction: row;
+        gap: 0.8rem;
+        flex: 1;
+        min-height: 0;
+    }
+    .card-top {
+        width: 100%;
+        flex-shrink: 0;
+    }
+    .card-column {
+        flex: 1;
+        min-width: 0;
+        overflow: hidden;
+        padding: 1rem 1.2rem;
+    }
+    .card-column .bullet-list {
+        font-size: clamp(0.85rem, 1.5vw, 1.15rem);
+    }
+    .card-column .body-text {
+        font-size: clamp(0.85rem, 1.5vw, 1.15rem);
+        margin-bottom: 0.5rem;
+    }
+    .card-top .bullet-list {
+        font-size: clamp(1rem, 1.8vw, 1.4rem);
+    }
+    .card-top .body-text {
+        font-size: clamp(1rem, 1.8vw, 1.4rem);
+    }
+    .card-heading {
+        font-size: clamp(0.9rem, 1.6vw, 1.25rem);
+        font-weight: 700;
+        color: var(--accent);
+        margin-bottom: 0.5rem;
+        padding-bottom: 0.3rem;
+        border-bottom: 2px solid var(--accent);
+        opacity: 0.9;
+    }
+
     /* === 圖表容器 === */
     .diagram-container {
         display: flex;
@@ -1043,10 +1091,22 @@ project_path: &quot;C:/Project/REVIT_MCP_study&quot;
             <div class="card content-card"><p class="body-text">1. 提供 AI 我已知的工作流程</p><p class="body-text">2. 持續和AI討論規格，讓AI 補充細節、闕漏、矛盾點，或上網搜尋最佳實踐，並協助建立流程圖</p><p class="body-text">3. 最後請AI依規格開發出MCP工具</p></div><div class="slide-footer"><span class="footer-left"></span><span class="footer-author">黃任遠 Alex Huang | 2026-03-28</span><span class="page-num">8 / 39</span></div></section><section class="slide slide--content">
             <h2 class="slide-title">層級關係：Skill<span class="aside-text">（技能）</span>、Domains<span class="aside-text">（領域知識）</span>、Tools<span class="aside-text">（工具）</span></h2>
             <div class="card content-card"><p class="body-text">1. <strong>Skill (技能)</strong>：解決問題的「大類別」<span class="aside-text">（例如：【法規自動化檢討】）</span></p><p class="body-text">2. <strong>Domains (領域)</strong>：解決特定法規或特定工作流的「邏輯組合」<span class="aside-text">（例如：排煙窗檢討、居室採光檢討）</span></p><p class="body-text">3. <strong>Tools (工具)</strong>：執行任務的「最小單元」，具備高度共用性<span class="aside-text">（例如：<code>get_room_info</code>、<code>create_dimension</code>）</span></p></div><div class="slide-footer"><span class="footer-left"></span><span class="footer-author">黃任遠 Alex Huang | 2026-03-28</span><span class="page-num">9 / 39</span></div></section><section class="slide slide--content">
-            <h2 class="slide-title">Skill-Domains-Tools 三者關係舉例-1</h2>
-            <div class="card content-card"><h3 class="slide-subheading">Domain 共用 Tool</h3><p class="body-text">+ <strong>【排煙窗檢討 Domain】</strong> 需要：tool&quot;取得房間面積&quot; (取 2%) + tool&quot;取得窗戶面積&quot; (取折減係數)。</p><p class="body-text">+ <strong>【採光檢討 Domain】</strong> 需要：tool&quot;取得房間面積&quot; (取 1/8) + tool&quot;取得窗戶面積&quot; (取台度 75cm 以上)。</p><p class="body-text">+ <strong>技術共享</strong>：雖然法規檢討流程中，有效面積計算不同，但「取得房間面積、取得窗戶面積」的動作是重疊的。</p></div><div class="slide-footer"><span class="footer-left"></span><span class="footer-author">黃任遠 Alex Huang | 2026-03-28</span><span class="page-num">10 / 39</span></div></section><section class="slide slide--content">
-            <h2 class="slide-title">Skill-Domains-Tools 三者關係舉例-2</h2>
-            <div class="card content-card"><h3 class="slide-subheading">Tool 被多個 Domain 共用</h3><p class="body-text">+ 在 <strong>【排煙檢討】</strong> 中：用來標註窗戶在「天花板下 80cm 有效帶」內的實際開啟高度。</p><p class="body-text">+ 在 <strong>【走廊分析】</strong> 中：用來標註走廊的淨寬度。</p><p class="body-text">+ 在 <strong>【自動標註】</strong> 中：用來標註房間與四周牆體的距離<span class="aside-text">（如：<code>check_exterior_wall_openings</code>）</span>。</p><p class="body-text">+ <strong>結論</strong>： 只需要開發一次 <code>create_dimension</code> 的 C# 命令，就能支援多個不同 Domains 的視覺化回饋。</p></div><div class="slide-footer"><span class="footer-left"></span><span class="footer-author">黃任遠 Alex Huang | 2026-03-28</span><span class="page-num">11 / 39</span></div></section><section class="slide slide--section">
+        <h2 class="slide-title">Skill-Domains-Tools 三者關係舉例-1</h2>
+        <div class="multi-card-layout layout-columns">
+            <div class="columns-row"><div class="card card-column"><h3 class="card-heading">排煙窗檢討 Domain</h3>
+<ul class="bullet-list"><li>取得房間面積<span class="aside-text">（取 2%）</span></li><li>取得窗戶面積<span class="aside-text">（取折減係數）</span></li></ul></div><div class="card card-column"><h3 class="card-heading">採光檢討 Domain</h3>
+<ul class="bullet-list"><li>取得房間面積<span class="aside-text">（取 1/8）</span></li><li>取得窗戶面積<span class="aside-text">（台度 75cm 以上）</span></li></ul></div><div class="card card-column"><h3 class="card-heading">技術共享</h3>
+<ul class="bullet-list"><li>雖然法規計算方式不同</li><li>「取得房間面積」、「取得窗戶面積」的 Revit 操作是重疊的</li></ul></div></div>
+        </div><div class="slide-footer"><span class="footer-left"></span><span class="footer-author">黃任遠 Alex Huang | 2026-03-28</span><span class="page-num">10 / 39</span></div></section><section class="slide slide--content">
+        <h2 class="slide-title">Skill-Domains-Tools 三者關係舉例-2</h2>
+        <div class="multi-card-layout layout-top-columns">
+            <div class="card card-top"><h3 class="card-heading"><code>create_dimension</code> 被多個 Domain 共用</h3>
+<p class="body-text">只需開發一次，就能支援多個 Domain 的視覺化回饋</p></div>
+            <div class="columns-row"><div class="card card-column"><h3 class="card-heading">排煙檢討</h3>
+<p class="body-text">標註窗戶在「天花板下 80cm 有效帶」內的實際開啟高度</p></div><div class="card card-column"><h3 class="card-heading">走廊分析</h3>
+<p class="body-text">標註走廊的淨寬度</p></div><div class="card card-column"><h3 class="card-heading">自動標註</h3>
+<p class="body-text">標註房間與四周牆體的距離</p></div></div>
+        </div><div class="slide-footer"><span class="footer-left"></span><span class="footer-author">黃任遠 Alex Huang | 2026-03-28</span><span class="page-num">11 / 39</span></div></section><section class="slide slide--section">
         <div class="section-with-flow">
             <div class="section-content">
                 <div class="section-accent-line"></div>
@@ -1087,18 +1147,33 @@ project_path: &quot;C:/Project/REVIT_MCP_study&quot;
         </div></section><section class="slide slide--image">
         <h2 class="slide-title">排煙窗法規檢討成果</h2>
         <div class="image-full"><div class="image-gallery"><figure class="gallery-item"><img src="image/排煙窗_案例.jpg" alt="排煙窗_案例" class="slide-img gallery-img"><figcaption class="gallery-caption">排煙窗_案例</figcaption></figure><figure class="gallery-item"><img src="image/排煙窗_對話框中的成果.jpg" alt="排煙窗_對話框中的成果" class="slide-img gallery-img"><figcaption class="gallery-caption">排煙窗_對話框中的成果</figcaption></figure><figure class="gallery-item"><img src="image/排煙窗_立面標示.jpg" alt="排煙窗_立面標示" class="slide-img gallery-img"><figcaption class="gallery-caption">排煙窗_立面標示</figcaption></figure></div></div><div class="slide-footer"><span class="footer-left"></span><span class="footer-author">黃任遠 Alex Huang | 2026-03-28</span><span class="page-num">13 / 39</span></div></section><section class="slide slide--content" data-notes="停頓一下。「你們猜，我漏掉什麼了？」這是互動點。漏掉的其實很多：折減係數、無開口樓層、防煙區劃、消防法與建築法兩套體系……這些是 AI 幫我補充的。">
-            <h2 class="slide-title">跟AI討論規格-1：從我知道的兩件事開始</h2>
-            <div class="card content-card"><p class="body-text">+ 前言：上次聽 David 聽分享居室採光法規檢討，想到自己之前算很久的排煙窗也可以檢討</p><p class="body-text">+ 我的目標：盡量透過窗戶排煙，而不要設置排煙設備。</p><p class="body-text">但同時盡量不新增窗型，維持立面設計與窗型規格數。</p><p class="body-text">1. 所有樓層需設置排煙設備：</p><p class="body-text"><code>當層樓地板面積≥ 1000m²</code> 且 <code>當層有效開口面積 &gt; 當層樓地板面積1/30</code></p><p class="body-text">2. 單一居室需設置排煙設備：</p><p class="body-text"><code>居室面積&gt; 50m²</code>且 <code>天花板下80cm有效通風面積 &lt; 該居室面積2%</code></p></div><div class="slide-footer"><span class="footer-left"></span><span class="footer-author">黃任遠 Alex Huang | 2026-03-28</span><span class="page-num">14 / 39</span></div></section><section class="slide slide--content" data-notes="「這正是建築師跟 AI 合作最有價值的地方：我提供領域知識的主幹，AI 幫我補充我沒想到的細節。最後跑出來的流程圖，我能看懂每一條，因為本來就是我自己知識的延伸。」">
-            <h2 class="slide-title">跟AI討論規格-2：AI 幫我補齊的部分</h2>
-            <div class="card content-card"><p class="body-text">1. 更上層的事情：特定用途場所，該用途 <code>總樓地板面積≥ 500m²</code>  就需要設置排煙設備</p><p class="body-text">2. 若空間更大：防煙區劃<span class="aside-text">（每 500 m² 一個區）</span>，依區劃檢討</p><p class="body-text">3. 窗戶開啟方式的折減<span class="aside-text">（固定窗 = 0；開啟角度&lt;45度需要折減）</span></p></div><div class="slide-footer"><span class="footer-left"></span><span class="footer-author">黃任遠 Alex Huang | 2026-03-28</span><span class="page-num">15 / 39</span></div></section><section class="slide slide--content">
+        <h2 class="slide-title">跟AI討論規格-1：從我知道的兩件事開始</h2>
+        <div class="multi-card-layout layout-top-columns">
+            <div class="card card-top"><ul class="bullet-list"><li>前言：上次聽 David 分享居室採光法規檢討，想到自己之前算很久的排煙窗也可以檢討</li><li>我的目標：盡量透過窗戶排煙，不設置排煙設備，同時盡量不新增窗型</li></ul></div>
+            <div class="columns-row"><div class="card card-column"><h3 class="card-heading">條件一：所有樓層</h3>
+<p class="body-text"><code>當層樓地板面積 ≥ 1000m²</code></p><p class="body-text">且</p><p class="body-text"><code>當層有效開口面積 &gt; 當層樓地板面積 1/30</code></p></div><div class="card card-column"><h3 class="card-heading">條件二：單一居室</h3>
+<p class="body-text"><code>居室面積 &gt; 50m²</code></p><p class="body-text">且</p><p class="body-text"><code>天花板下80cm有效通風面積 &lt; 居室面積 2%</code></p></div></div>
+        </div><div class="slide-footer"><span class="footer-left"></span><span class="footer-author">黃任遠 Alex Huang | 2026-03-28</span><span class="page-num">14 / 39</span></div></section><section class="slide slide--content" data-notes="「這正是建築師跟 AI 合作最有價值的地方：我提供領域知識的主幹，AI 幫我補充我沒想到的細節。最後跑出來的流程圖，我能看懂每一條，因為本來就是我自己知識的延伸。」">
+        <h2 class="slide-title">跟AI討論規格-2：AI 幫我補齊的部分</h2>
+        <div class="multi-card-layout layout-columns">
+            <div class="columns-row"><div class="card card-column"><h3 class="card-heading">更上層的規定</h3>
+<p class="body-text">特定用途場所，<code>總樓地板面積 ≥ 500m²</code> 就需要設置排煙設備</p></div><div class="card card-column"><h3 class="card-heading">空間更大時</h3>
+<p class="body-text">防煙區劃<span class="aside-text">（每 500m² 一個區）</span>，依區劃個別檢討</p></div><div class="card card-column"><h3 class="card-heading">窗戶折減係數</h3>
+<ul class="bullet-list"><li>固定窗 = 0<span class="aside-text">（不計）</span></li><li>開啟角度 &lt; 45° → 需折減</li></ul></div></div>
+        </div><div class="slide-footer"><span class="footer-left"></span><span class="footer-author">黃任遠 Alex Huang | 2026-03-28</span><span class="page-num">15 / 39</span></div></section><section class="slide slide--content">
             <h2 class="slide-title">跟AI討論規格-3：我希望輸出給技師的部分</h2>
             <div class="card content-card"><p class="body-text">1. 溝通用圖說：標出天花下 80cm 的範圍線，並標註出有效範圍內的開口長寬</p><p class="body-text">2. Excel 列出各房間與窗的對應明細</p></div><div class="slide-footer"><span class="footer-left"></span><span class="footer-author">黃任遠 Alex Huang | 2026-03-28</span><span class="page-num">16 / 39</span></div></section><section class="slide slide--content">
             <h2 class="slide-title">跟AI討論規格-4：整理出完整流程</h2>
             <div class="card content-card"><ul class="bullet-list"><li>自動讀取每個房間的窗戶、天花板高度</li><li>計算有效帶<span class="aside-text">（天花板下 80 cm）</span>內的可開啟面積</li><li>對照 2% 門檻判定合規</li><li>在 Revit 裡直接建立新的剖面視圖</li><li>畫出天花線、有效帶範圍、標上尺寸數字</li></ul></div><div class="slide-footer"><span class="footer-left"></span><span class="footer-author">黃任遠 Alex Huang | 2026-03-28</span><span class="page-num">17 / 39</span></div></section><section class="slide slide--image">
         <h2 class="slide-title">跟AI討論規格-4-1：流程圖</h2>
         <div class="image-full"><div class="image-gallery"><figure class="gallery-item"><img src="image/排煙窗邏輯判定圖-1.png" alt="排煙窗邏輯判定圖-1" class="slide-img gallery-img"><figcaption class="gallery-caption">排煙窗邏輯判定圖-1</figcaption></figure><figure class="gallery-item"><img src="image/排煙窗邏輯判定圖-2.png" alt="排煙窗邏輯判定圖-2" class="slide-img gallery-img"><figcaption class="gallery-caption">排煙窗邏輯判定圖-2</figcaption></figure><figure class="gallery-item"><img src="image/排煙窗邏輯判定圖-3.png" alt="排煙窗邏輯判定圖-3" class="slide-img gallery-img"><figcaption class="gallery-caption">排煙窗邏輯判定圖-3</figcaption></figure></div></div><div class="slide-footer"><span class="footer-left"></span><span class="footer-author">黃任遠 Alex Huang | 2026-03-28</span><span class="page-num">18 / 39</span></div></section><section class="slide slide--content" data-notes="「為什麼不讓 AI 直接幫你新增窗型？因為那是設計決策。也許你要換窗型，也許要改天花高度，也許要做機械排煙。這個判斷必須是建築師來做。AI 給你數字，你做決定。」">
-            <h2 class="slide-title">跟AI討論規格-5：輸出 Excel 的詳細內容</h2>
-            <div class="card content-card"><ul class="bullet-list"><li>5 個工作表：樓層總覽 / 房間明細 / 窗戶明細 / 改善建議 / 補充法規</li><li>判定結果標色<span class="aside-text">（PASS 綠 / WARNING 橘 / MANUAL 藍）</span></li><li>直接交給消防技師，不需要再整理</li><li>AI 建議「現有的窗型還需要補幾個」</li><li>不自動新增窗型，只給建議</li></ul></div><div class="slide-footer"><span class="footer-left"></span><span class="footer-author">黃任遠 Alex Huang | 2026-03-28</span><span class="page-num">19 / 39</span></div></section><section class="slide slide--content">
+        <h2 class="slide-title">跟AI討論規格-5：輸出 Excel 的詳細內容</h2>
+        <div class="multi-card-layout layout-top-columns">
+            <div class="card card-top"><ul class="bullet-list"><li>5 個工作表：樓層總覽 / 房間明細 / 窗戶明細 / 改善建議 / 補充法規</li><li>判定結果標色<span class="aside-text">（PASS 綠 / WARNING 橘 / MANUAL 藍）</span></li><li>直接交給消防技師，不需要再整理</li></ul></div>
+            <div class="columns-row"><div class="card card-column"><h3 class="card-heading">AI 給建議</h3>
+<p class="body-text">列出「現有窗型還需補幾個才合規」的具體數字</p></div><div class="card card-column"><h3 class="card-heading">人做決定</h3>
+<p class="body-text">要換窗型？改天花高度？做機械排煙？這個判斷必須是建築師來做</p></div></div>
+        </div><div class="slide-footer"><span class="footer-left"></span><span class="footer-author">黃任遠 Alex Huang | 2026-03-28</span><span class="page-num">19 / 39</span></div></section><section class="slide slide--content">
             <h2 class="slide-title">請AI依規格寫程式</h2>
             <div class="card content-card"><ul class="bullet-list"><li>先確認目前專案已有的Tools，哪些可以重複利用？哪些這次要新開發出來？</li></ul></div><div class="slide-footer"><span class="footer-left"></span><span class="footer-author">黃任遠 Alex Huang | 2026-03-28</span><span class="page-num">20 / 39</span></div></section><section class="slide slide--content">
             <h2 class="slide-title">請AI依規格寫程式<span class="aside-text">（續）</span></h2>
