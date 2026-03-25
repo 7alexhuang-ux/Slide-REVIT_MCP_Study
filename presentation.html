@@ -1168,7 +1168,10 @@ Google AI Studio 做的工具
         <h2 class="slide-title">舊做法: 以前寫的小工具 - 影片</h2>
         <div class="image-full"><video class="slide-img slide-video" controls playsinline preload="metadata"><source src="image/建築立面設計_影片.mp4"></video></div><div class="slide-footer"><span class="footer-left"></span><span class="footer-author">黃任遠 Alex Huang | 2026-03-28</span><span class="page-num">31 / 39</span></div></section><section class="slide slide--content">
             <h2 class="slide-title">嘗試改進：用手打編號，以MCP寫入Revit</h2>
-            <div class="card content-card"><ul class="bullet-list"><li>一開始的想法：用文字編號的方式貼給AI，再請他排列<span class="aside-text">（例如：121212／ABBABBA／ABCD、BCDA、CDAB、DABC⋯）</span></li><li>和AI討論後：發現手打編號不直覺，沒有即時視覺反饋，建議新增一個<strong>網頁預覽介面</strong>來溝通<ul><li><strong>網頁預覽介面</strong>：通訊用 HTTP / REST API 來讀寫，只需在「開始」「結束」時傳大批資料<span class="aside-text">（像「公文往返」）</span></li><li><strong>MCP Server 與 Revit</strong>：通訊用 WebSocket，適合即時頻繁操作<span class="aside-text">（像「電話直通」）</span></li></ul></li></ul></div><div class="slide-footer"><span class="footer-left"></span><span class="footer-author">黃任遠 Alex Huang | 2026-03-28</span><span class="page-num">32 / 39</span></div></section><section class="slide slide--content">
+            <div class="card content-card"><ul class="bullet-list"><li>一開始的想法：用文字編號的方式貼給AI，再請他排列<pre style="margin:0.5em 0 0.5em 1.5em;font-size:0.82em;line-height:1.8;opacity:0.85;">121212　　ABBABBA　　ABCD
+121212　　ABBABBA　　BCDA
+122122　　ABBABBA　　CDAB
+121212　　ABBABBA　　DABC</pre></li><li>和AI討論後：發現手打編號不直覺，沒有即時視覺反饋，建議新增一個<strong>網頁預覽介面</strong>來溝通<ul><li><strong>網頁預覽介面</strong>：通訊用 HTTP / REST API 來讀寫，只需在「開始」「結束」時傳大批資料<span class="aside-text">（像「公文往返」）</span></li><li><strong>MCP Server 與 Revit</strong>：通訊用 WebSocket，適合即時頻繁操作<span class="aside-text">（像「電話直通」）</span></li></ul></li></ul></div><div class="slide-footer"><span class="footer-left"></span><span class="footer-author">黃任遠 Alex Huang | 2026-03-28</span><span class="page-num">32 / 39</span></div></section><section class="slide slide--content">
             <h2 class="slide-title">新做法：設計完直接套用</h2>
             <div class="card code-card"><pre><code>選取 Revit 帷幕牆
        ↓
@@ -1414,14 +1417,12 @@ Revit 模型自動更新</code></pre></div><div class="slide-footer"><span class
         }
     });
 
-    document.addEventListener('click', e => {
-        const x = e.clientX / window.innerWidth;
-        if (x > 0.5) next(); else prev();
-    });
+    // 點擊換頁已停用，改用滾輪或鍵盤左右鍵換頁
 
     let touchStartX = 0;
     document.addEventListener('touchstart', e => { touchStartX = e.touches[0].clientX; });
     document.addEventListener('touchend', e => {
+        if (lightboxOpen) return; // lightbox 開啟時不換頁
         const diff = e.changedTouches[0].clientX - touchStartX;
         if (Math.abs(diff) > 50) { diff < 0 ? next() : prev(); }
     });
@@ -1442,7 +1443,7 @@ Revit 模型自動更新</code></pre></div><div class="slide-footer"><span class
             li.className = 'nav-item';
             if (slide.classList.contains('slide--section')) li.classList.add('nav-section');
             li.dataset.slide = idx;
-            const titleEl = slide.querySelector('.section-title, .cover-title, .closing-title, .slide-title');
+            const titleEl = slide.querySelector('.section-title, .cover-title, .closing-title, .slide-title, .toc-title');
             li.textContent = titleEl ? titleEl.textContent.trim() : `投影片 ${idx + 1}`;
             li.addEventListener('click', e => {
                 e.stopPropagation();
@@ -1467,10 +1468,11 @@ Revit 模型自動更新</code></pre></div><div class="slide-footer"><span class
     updateNav();
 
     // 滾輪換頁（加 debounce 避免連續觸發）
+    // 掛在 .deck 而非 document，讓 lightbox/nav/notes 等兄弟元素的滾輪事件
+    // 永遠不會進入此冒泡路徑；lightboxOpen 為額外保險
     let wheelLock = false;
-    document.addEventListener('wheel', e => {
-        if (editMode || wheelLock || e.target.closest('.nav-sidebar') || e.target.closest('.notes-panel')) return;
-        if (imageModal && imageModal.classList.contains('visible')) return; // lightbox 開啟時不換頁
+    document.querySelector('.deck').addEventListener('wheel', e => {
+        if (editMode || wheelLock || lightboxOpen) return;
         wheelLock = true;
         if (e.deltaY > 0) next(); else if (e.deltaY < 0) prev();
         setTimeout(() => { wheelLock = false; }, 400);
@@ -1485,6 +1487,7 @@ Revit 模型自動更新</code></pre></div><div class="slide-footer"><span class
     let startDragX, startDragY;
     let lightboxSrcs = [];
     let lightboxIdx = 0;
+    let lightboxOpen = false;
 
     function openLightbox(src) {
         // 收集當前投影片所有靜態圖片（排除 video）
@@ -1497,10 +1500,12 @@ Revit 模型自動更新</code></pre></div><div class="slide-footer"><span class
         scale = 1; posX = 0; posY = 0;
         updateModalTransform();
         imageModal.classList.add('visible');
+        lightboxOpen = true;
     }
 
     function closeLightbox() {
         imageModal.classList.remove('visible');
+        lightboxOpen = false;
     }
 
     function lightboxNav(dir) {
