@@ -165,28 +165,33 @@
     .card-top {
         width: 100%;
         flex-shrink: 0;
+        font-size: clamp(1.1rem, 2vw, 1.6rem);
     }
     .card-column {
         flex: 1;
         min-width: 0;
         overflow: hidden;
         padding: 1rem 1.2rem;
+        font-size: clamp(1.0rem, 1.8vw, 1.5rem);
     }
-    .card-column .bullet-list {
-        font-size: clamp(0.85rem, 1.5vw, 1.15rem);
+    /* 卡片內文字全部繼承 card 的 font-size，讓 autoFitCards 統一控制 */
+    .card-column .bullet-list > li,
+    .card-top .bullet-list > li {
+        font-size: 1em;
+        padding: 0.25rem 0 0.25rem 1.4rem;
     }
-    .card-column .body-text {
-        font-size: clamp(0.85rem, 1.5vw, 1.15rem);
-        margin-bottom: 0.5rem;
+    .card-column .bullet-list > li::before,
+    .card-top .bullet-list > li::before {
+        top: 0.65em;
     }
-    .card-top .bullet-list {
-        font-size: clamp(1rem, 1.8vw, 1.4rem);
-    }
+    .card-column .body-text,
     .card-top .body-text {
-        font-size: clamp(1rem, 1.8vw, 1.4rem);
+        font-size: 1em;
+        margin-bottom: 0.4rem;
+        line-height: 1.5;
     }
     .card-heading {
-        font-size: clamp(0.9rem, 1.6vw, 1.25rem);
+        font-size: 1.05em;
         font-weight: 700;
         color: var(--accent);
         margin-bottom: 0.5rem;
@@ -1246,7 +1251,7 @@ Google AI Studio 做的工具
 122122　　ABBABBA　　CDAB
 121212　　ABBABBA　　DABC</code></pre></div><div class="slide-footer"><span class="footer-left"></span><span class="footer-author">黃任遠 Alex Huang | 2026-03-28</span><span class="page-num">31 / 39</span></div></section><section class="slide slide--content">
             <h2 class="slide-title">網頁預覽介面通訊協定筆記</h2>
-            <div class="card content-card"><ul class="bullet-list"><li>Note：</li></ul></div><div class="slide-footer"><span class="footer-left"></span><span class="footer-author">黃任遠 Alex Huang | 2026-03-28</span><span class="page-num">32 / 39</span></div></section><section class="slide slide--content">
+            <div class="card content-card"><ul class="bullet-list"><li><strong>網頁預覽介面</strong>：通訊用HTTP / REST API 來讀寫，只需要在「開始」「結束」時傳大批資料<span class="aside-text">（像「公文往返」）</span></li><li><strong>MCP Server與Revit</strong>：通訊用WebSocket ，適合即時頻繁操作。<span class="aside-text">（像「電話直通）</span></li></ul></div><div class="slide-footer"><span class="footer-left"></span><span class="footer-author">黃任遠 Alex Huang | 2026-03-28</span><span class="page-num">32 / 39</span></div></section><section class="slide slide--content">
             <h2 class="slide-title">新做法：設計完直接套用</h2>
             <div class="card code-card"><pre><code>選取 Revit 帷幕牆
        ↓
@@ -1664,8 +1669,40 @@ Revit 模型自動更新</code></pre></div><div class="slide-footer"><span class
             }
         });
     }
+    function autoFitCards() {
+        document.querySelectorAll('.card-column, .card-top').forEach(card => {
+            card.style.fontSize = '';  // 先 reset，從 CSS 定義的最大值開始
+            const style = getComputedStyle(card);
+            const padV = parseFloat(style.paddingTop) + parseFloat(style.paddingBottom);
+            const available = card.clientHeight - padV;
+            if (available <= 0) return;
+            function totalH() {
+                let h = 0;
+                for (const el of card.children) {
+                    const cs = getComputedStyle(el);
+                    h += el.offsetHeight + parseFloat(cs.marginTop) + parseFloat(cs.marginBottom);
+                }
+                return h;
+            }
+            if (totalH() <= available) return;
+            const startPx = parseFloat(getComputedStyle(card).fontSize);
+            const minPx = startPx * 0.45;
+            const stepPx = startPx * 0.04;
+            for (let px = startPx - stepPx; px >= minPx; px -= stepPx) {
+                card.style.fontSize = px + 'px';
+                if (totalH() <= available) break;
+            }
+        });
+    }
+
     // 頁面渲染完成後執行（避免 flexbox 尺寸未計算問題）
-    requestAnimationFrame(function() { requestAnimationFrame(autoFitSlides); });
+    // autoFitSlides 先跑整頁縮放，再跑 autoFitCards 做 per-card 縮放
+    requestAnimationFrame(function() {
+        requestAnimationFrame(function() {
+            autoFitSlides();
+            requestAnimationFrame(autoFitCards);
+        });
+    });
 
     // === 編輯模式 ===
     let editMode = false;
