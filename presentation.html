@@ -407,6 +407,9 @@
         color: var(--text-secondary);
     }
     .card-table tr:last-child td { border-bottom: none; }
+    /* 最後一欄以外不折行，讓短欄縮到剛好，長欄承擔換行 */
+    .card-table td:not(:last-child),
+    .card-table th:not(:last-child) { white-space: nowrap; }
 
     /* === 引言 === */
     .slide--quote { align-items: center; text-align: center; }
